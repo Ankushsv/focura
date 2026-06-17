@@ -138,26 +138,31 @@ function TimerInner() {
     fetchSounds();
 
     // Choice Memory & Settings default integration
-    const lastDur = localStorage.getItem("focura.timer.last_duration");
-    const settingsDur = localStorage.getItem("focura.timer.focus_duration");
-    const initialDur = lastDur ? parseInt(lastDur, 10) : (settingsDur ? parseInt(settingsDur, 10) : 25);
-    if (initialDur && !isNaN(initialDur)) {
-      setMinutes(initialDur);
-      if (!LENGTHS.includes(initialDur)) {
-        setIsCustomMode(true);
-        setCustomMinutes(String(initialDur));
+    async function loadTimerSettings() {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("focus_duration")
+            .eq("id", user.id)
+            .single();
+
+          if (profile?.focus_duration) {
+            setMinutes(profile.focus_duration);
+            if (!LENGTHS.includes(profile.focus_duration)) {
+              setIsCustomMode(true);
+              setCustomMinutes(String(profile.focus_duration));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load profile timer settings:", err);
       }
     }
-
-    const lastSound = localStorage.getItem("focura.timer.last_soundscape");
-    if (lastSound) {
-      setSelectedSoundscapeId(lastSound);
-    }
-
-    const lastCycle = localStorage.getItem("focura.timer.last_cycle_mode");
-    if (lastCycle) {
-      setCycleMode(lastCycle as any);
-    }
+    loadTimerSettings();
   }, [params]);
 
   // Handle custom minutes mode input sync
@@ -257,10 +262,6 @@ function TimerInner() {
   }
 
   function begin() {
-    // Save choices to localStorage
-    localStorage.setItem("focura.timer.last_duration", String(minutes));
-    localStorage.setItem("focura.timer.last_soundscape", selectedSoundscapeId);
-    localStorage.setItem("focura.timer.last_cycle_mode", cycleMode);
 
     prevPhaseRef.current = 0;
     setElapsed(0);

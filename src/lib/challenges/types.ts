@@ -11,6 +11,7 @@ export interface Challenge {
   xpReward: number;
   claimed: boolean;
   expiresAt: number; // epoch ms — weekly reset
+  createdAt?: number;
 }
 
 export const CATEGORY_COLORS: Record<ChallengeCategory, string> = {

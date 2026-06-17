@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { bus } from "@/lib/events";
 import { levelFromXp } from "@/lib/xp/levels";
 
@@ -18,33 +19,69 @@ let orbId = 0;
 
 /**
  * Global XP engine — the single source of truth for awarding XP.
- * Emits `xp:awarded` and `level:up` on the event bus and renders floating
- * XP orbs. Persists events to Supabase when a session exists.
+ * Fetches and saves directly to Supabase profiles. Removes local storage.
  */
 export function XpProvider({ children }: { children: React.ReactNode }) {
   const [totalXp, setTotalXp] = useState(0);
   const [orbs, setOrbs] = useState<Orb[]>([]);
   const level = levelFromXp(totalXp);
 
-  // Load XP from localStorage on mount
+  // Load XP from Supabase on mount
   useEffect(() => {
-    const saved = localStorage.getItem("focura.xp.v1");
-    if (saved) {
-      setTotalXp(parseInt(saved, 10) || 0);
+    async function loadXp() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("total_xp")
+          .eq("id", user.id)
+          .single();
+
+        if (profile?.total_xp) {
+          setTotalXp(profile.total_xp);
+        }
+      } catch (err) {
+        console.warn("Failed to load XP from Supabase profiles:", err);
+      }
     }
+    loadXp();
   }, []);
 
   const awardXp = useCallback((amount: number, source: string) => {
     setTotalXp((prev) => {
       const total = prev + amount;
-      localStorage.setItem("focura.xp.v1", total.toString());
       const newLevel = levelFromXp(total);
+      
+      // Update database asynchronously
+      void (async () => {
+        try {
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          // Update profiles total_xp and level
+          await supabase
+            .from("profiles")
+            .update({ total_xp: total, level: newLevel })
+            .eq("id", user.id);
+
+          // Log XP Event
+          await supabase
+            .from("xp_events")
+            .insert({ user_id: user.id, source_module: source, amount });
+        } catch (err) {
+          console.warn("Failed to save XP event to Supabase:", err);
+        }
+      })();
+
       bus.emit("xp:awarded", { amount, source, total, level: newLevel });
       if (newLevel > levelFromXp(prev)) bus.emit("level:up", { level: newLevel });
       return total;
     });
     setOrbs((o) => [...o, { id: ++orbId, amount }]);
-    void persist(amount, source);
   }, []);
 
   return (
@@ -63,21 +100,6 @@ export function XpProvider({ children }: { children: React.ReactNode }) {
       </div>
     </XpContext.Provider>
   );
-}
-
-async function persist(amount: number, source: string) {
-  try {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
-    const { createClient } = await import("@/lib/supabase/client");
-    const supabase = createClient();
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return;
-    await supabase
-      .from("xp_events")
-      .insert({ user_id: data.user.id, source_module: source, amount });
-  } catch {
-    // Offline-friendly: XP still works locally without persistence.
-  }
 }
 
 export function useXp() {

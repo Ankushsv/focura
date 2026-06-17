@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase/client";
+
 export type FocusSession = {
   id: string;
   taskId: string | null;
@@ -7,23 +9,22 @@ export type FocusSession = {
   endedAt: number;
 };
 
-const KEY = "focura.sessions.v1";
-
-/** Session history for Focus Memory (issue #11). Maps onto focus_sessions in Supabase. */
-export function getSessions(): FocusSession[] {
+export async function logSession(session: Omit<FocusSession, "id">) {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "[]") as FocusSession[];
-  } catch {
-    return [];
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from("sessions").insert({
+      user_id: user.id,
+      task_id: session.taskId || null,
+      task_title: session.taskTitle,
+      planned_minutes: session.plannedMinutes,
+      actual_minutes: session.actualMinutes,
+      ended_at: new Date(session.endedAt).toISOString()
+    });
+  } catch (err) {
+    console.warn("Failed to log focus session to Supabase:", err);
   }
 }
 
-export function logSession(session: Omit<FocusSession, "id">) {
-  try {
-    const all = getSessions();
-    all.unshift({ id: Math.random().toString(36).slice(2, 10), ...session });
-    localStorage.setItem(KEY, JSON.stringify(all.slice(0, 500)));
-  } catch {
-    /* storage unavailable */
-  }
-}

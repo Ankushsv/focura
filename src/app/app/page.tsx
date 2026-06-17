@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const pct = Math.round((progress.current / progress.required) * 100);
 
   // States
+  const [user, setUser] = useState<any>(null);
   const [name, setName] = useState("Adventurer");
   const [avatar, setAvatar] = useState("🧗");
   const [isLight, setIsLight] = useState(false);
@@ -72,95 +73,124 @@ export default function DashboardPage() {
 
   // Load User Info and Data
   useEffect(() => {
-    // 1. Fetch Supabase or Local Storage Name
-    async function loadUser() {
+    async function loadData() {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        if (!user && supabaseUser) {
+          setUser(supabaseUser);
+        }
+
+        if (supabaseUser) {
+          // 1. Fetch Profile
           const { data: profile } = await supabase
             .from("profiles")
-            .select("name")
-            .eq("id", user.id)
+            .select("*")
+            .eq("id", supabaseUser.id)
             .single();
-          if (profile?.name) setName(profile.name);
-          else if (user.email) setName(user.email.split("@")[0]);
-        } else {
-          const saved = localStorage.getItem("focura.username");
-          if (saved) setName(saved);
+
+          if (profile) {
+            setName(profile.username || profile.name || supabaseUser.email?.split("@")[0] || "Adventurer");
+            if (profile.avatar_emoji) setAvatar(profile.avatar_emoji);
+            const isProfileLight = profile.theme === "light";
+            setIsLight(isProfileLight);
+            if (isProfileLight) {
+              document.documentElement.classList.add("light-theme");
+            } else {
+              document.documentElement.classList.remove("light-theme");
+            }
+          }
+
+          // 2. Load Tasks
+          const { data: dbTasks } = await supabase
+            .from("tasks")
+            .select("*")
+            .eq("user_id", supabaseUser.id);
+          if (dbTasks) {
+            setTasks(dbTasks.map((t: any) => ({
+              id: t.id,
+              title: t.title,
+              priority: t.priority,
+              energy: t.energy || "medium",
+              xp: t.xp || 25,
+              done: t.done || false,
+              isBoss: t.is_boss || false,
+              subtasks: [],
+              createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
+            })));
+          }
+
+          // 3. Load Sessions
+          const { data: dbSessions } = await supabase
+            .from("sessions")
+            .select("*")
+            .eq("user_id", supabaseUser.id);
+          if (dbSessions) {
+            setSessions(dbSessions.map((s: any) => ({
+              id: s.id,
+              taskId: s.task_id,
+              taskTitle: s.task_title || "Free focus",
+              plannedMinutes: s.planned_minutes,
+              actualMinutes: s.actual_minutes,
+              endedAt: s.ended_at ? new Date(s.ended_at).getTime() : Date.now(),
+            })));
+          }
+
+          // 4. Load Mastery Paths
+          const { data: dbPaths } = await supabase
+            .from("paths")
+            .select("*")
+            .eq("user_id", supabaseUser.id);
+          if (dbPaths) {
+            setPaths(dbPaths);
+          }
+
+          // 5. Load Weekly Goals (Challenges)
+          const { data: dbChallenges } = await supabase
+            .from("challenges")
+            .select("title")
+            .eq("user_id", supabaseUser.id);
+          if (dbChallenges) {
+            setWeeklyGoals(dbChallenges.map((c: any) => c.title));
+          }
+
+          // 6. Calculate Streak from Contracts Check-Ins
+          const { data: dbCheckins } = await supabase
+            .from("contract_checkins")
+            .select("date, done")
+            .eq("user_id", supabaseUser.id);
+
+          if (dbCheckins) {
+            const checkInDates = new Set(
+              dbCheckins
+                .filter((ci: any) => ci.done)
+                .map((ci: any) => ci.date)
+            );
+
+            let streak = 0;
+            const current = new Date();
+            let currentStr = current.toISOString().slice(0, 10);
+
+            if (!checkInDates.has(currentStr)) {
+              current.setDate(current.getDate() - 1);
+              currentStr = current.toISOString().slice(0, 10);
+            }
+
+            while (checkInDates.has(currentStr)) {
+              streak++;
+              current.setDate(current.getDate() - 1);
+              currentStr = current.toISOString().slice(0, 10);
+            }
+            setStreakDays(streak);
+          }
         }
-      } catch {
-        const saved = localStorage.getItem("focura.username");
-        if (saved) setName(saved);
+      } catch (err) {
+        console.warn("Failed to load dashboard data from Supabase:", err);
       }
-
-      const savedAvatar = localStorage.getItem("focura.avatar");
-      if (savedAvatar) setAvatar(savedAvatar);
-
-      const savedTheme = localStorage.getItem("focura.theme");
-      setIsLight(savedTheme === "light" || document.documentElement.classList.contains("light-theme"));
     }
-    loadUser();
-
-    // 2. Load Tasks
-    try {
-      const raw = localStorage.getItem("focura.tasks.v1");
-      if (raw) setTasks(JSON.parse(raw));
-    } catch {}
-
-    // 3. Load Sessions
-    try {
-      const raw = localStorage.getItem("focura.sessions.v1");
-      if (raw) setSessions(JSON.parse(raw));
-    } catch {}
-
-    // 4. Load Mastery Paths
-    try {
-      const raw = localStorage.getItem("focura.paths.v1");
-      if (raw) setPaths(JSON.parse(raw));
-    } catch {}
-
-    // 5. Load Weekly Goals
-    try {
-      const raw = localStorage.getItem("focura.weekly_goals.v1");
-      if (raw) setWeeklyGoals(JSON.parse(raw));
-    } catch {}
-
-    // 6. Calculate Streak from Contracts
-    try {
-      const raw = localStorage.getItem("focura.contracts.v1");
-      if (raw) {
-        const contracts = JSON.parse(raw);
-        const checkInDates = new Set(
-          contracts
-            .flatMap((c: any) => c.checkIns || [])
-            .filter((ci: any) => ci.done)
-            .map((ci: any) => ci.date)
-        );
-
-        let streak = 0;
-        const current = new Date();
-        let currentStr = current.toISOString().slice(0, 10);
-
-        if (!checkInDates.has(currentStr)) {
-          current.setDate(current.getDate() - 1);
-          currentStr = current.toISOString().slice(0, 10);
-        }
-
-        while (checkInDates.has(currentStr)) {
-          streak++;
-          current.setDate(current.getDate() - 1);
-          currentStr = current.toISOString().slice(0, 10);
-        }
-        setStreakDays(streak);
-      }
-    } catch {}
-
-    // 7. Load Quickstart Dismissed state
-    const dismissed = localStorage.getItem("focura.quickstart_dismissed.v1") === "true";
-    setQuickstartDismissed(dismissed);
-  }, []);
+    loadData();
+  }, [user]);
 
   // Compute Active Tasks & Done Tasks
   const activeTasks = useMemo(() => tasks.filter(t => !t.done), [tasks]);
@@ -180,19 +210,30 @@ export default function DashboardPage() {
 
   // Dismiss Quickstart Checklist
   const dismissQuickstart = () => {
-    localStorage.setItem("focura.quickstart_dismissed.v1", "true");
     setQuickstartDismissed(true);
   };
 
   // Toggle Theme
-  const toggleTheme = (light: boolean) => {
+  const toggleTheme = async (light: boolean) => {
     setIsLight(light);
     if (light) {
       document.documentElement.classList.add("light-theme");
-      localStorage.setItem("focura.theme", "light");
     } else {
       document.documentElement.classList.remove("light-theme");
-      localStorage.setItem("focura.theme", "dark");
+    }
+
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      if (supabaseUser) {
+        await supabase
+          .from("profiles")
+          .update({ theme: light ? "light" : "dark" })
+          .eq("id", supabaseUser.id);
+      }
+    } catch (err) {
+      console.warn("Failed to save theme in profile:", err);
     }
   };
 
@@ -634,28 +675,30 @@ export default function DashboardPage() {
           </div>
 
           {/* Card 4 — Demo LP Card */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-[#a78bfa]/15 via-[#1a1714] to-[#1a1714] rounded-2xl border border-realm-border p-5 space-y-3 shadow-md">
-            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[#a78bfa]/30 to-transparent" />
-            <h4 className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#a78bfa]">
-              DEMO PRACTICE
-            </h4>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-[9px] font-mono uppercase tracking-widest text-realm-muted">Practice Rewards</p>
-                <p className="text-xs font-quick font-bold text-[#f5efe8] mt-1">{totalXp} Legend Points</p>
+          {!user && (
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#a78bfa]/15 via-[#1a1714] to-[#1a1714] rounded-2xl border border-realm-border p-5 space-y-3 shadow-md">
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[#a78bfa]/30 to-transparent" />
+              <h4 className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#a78bfa]">
+                DEMO PRACTICE
+              </h4>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-realm-muted">Practice Rewards</p>
+                  <p className="text-xs font-quick font-bold text-[#f5efe8] mt-1">{totalXp} Legend Points</p>
+                </div>
+                <button
+                  onClick={() => {
+                    awardXp(50, "demo");
+                    fireConfetti();
+                    bus.emit("pet:react", { message: "A fine training session, knight! +50 LP!" });
+                  }}
+                  className="rounded-full bg-[#a78bfa] text-[#0e0c0a] px-4 py-2 text-[10px] font-quick font-bold hover:shadow-[0_0_15px_rgba(167,139,250,0.4)] transition duration-200"
+                >
+                  Earn Demo LP
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  awardXp(50, "demo");
-                  fireConfetti();
-                  bus.emit("pet:react", { message: "A fine training session, knight! +50 LP!" });
-                }}
-                className="rounded-full bg-[#a78bfa] text-[#0e0c0a] px-4 py-2 text-[10px] font-quick font-bold hover:shadow-[0_0_15px_rgba(167,139,250,0.4)] transition duration-200"
-              >
-                Earn Demo LP
-              </button>
             </div>
-          </div>
+          )}
 
         </aside>
       </div>

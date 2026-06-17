@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useXp } from "@/components/providers/XpProvider";
 import { usePet } from "@/components/providers/PetProvider";
+import { createClient } from "@/lib/supabase/client";
 import { bus } from "@/lib/events";
 
 const AVATAR_OPTIONS = ["🧗", "🦊", "🚀", "🧙‍♂️", "🎯", "🧠", "🎨", "⚡", "👾", "☕", "🦄", "🍀"];
@@ -28,66 +29,104 @@ export default function SettingsPage() {
 
   // Load Settings
   useEffect(() => {
-    // 1. User Name & Avatar
-    const savedName = localStorage.getItem("focura.username") || "Adventurer";
-    const savedAvatar = localStorage.getItem("focura.avatar") || "🧗";
-    setName(savedName);
-    setAvatar(savedAvatar);
+    async function loadSettings() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-    // 2. Timer settings
-    const savedFocus = localStorage.getItem("focura.timer.focus_duration");
-    const savedShort = localStorage.getItem("focura.timer.short_break_duration");
-    const savedLong = localStorage.getItem("focura.timer.long_break_duration");
-    if (savedFocus) setFocusDur(parseInt(savedFocus, 10));
-    if (savedShort) setShortBreak(parseInt(savedShort, 10));
-    if (savedLong) setLongBreak(parseInt(savedLong, 10));
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
 
-    // 3. App settings (theme and toggles)
-    const savedTheme = localStorage.getItem("focura.theme");
-    const initialLight = savedTheme === "light" || document.documentElement.classList.contains("light-theme");
-    setIsLight(initialLight);
+        if (profile) {
+          setName(profile.username || profile.name || user.email?.split("@")[0] || "Adventurer");
+          setAvatar(profile.avatar_emoji || "🧗");
+          if (profile.focus_duration) setFocusDur(profile.focus_duration);
+          if (profile.short_break_duration) setShortBreak(profile.short_break_duration);
+          if (profile.long_break_duration) setLongBreak(profile.long_break_duration);
+          
+          const isProfileLight = profile.theme === "light";
+          setIsLight(isProfileLight);
+          if (isProfileLight) {
+            document.documentElement.classList.add("light-theme");
+          } else {
+            document.documentElement.classList.remove("light-theme");
+          }
 
-    const savedSounds = localStorage.getItem("focura.settings.sounds_enabled");
-    if (savedSounds !== null) setSoundsEnabled(savedSounds === "true");
-
-    const savedNotify = localStorage.getItem("focura.settings.notifications_enabled");
-    if (savedNotify !== null) setNotificationsEnabled(savedNotify === "true");
+          if (profile.sounds_enabled !== undefined && profile.sounds_enabled !== null) {
+            setSoundsEnabled(profile.sounds_enabled);
+          }
+          if (profile.notifications_enabled !== undefined && profile.notifications_enabled !== null) {
+            setNotificationsEnabled(profile.notifications_enabled);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load settings from Supabase:", err);
+      }
+    }
+    loadSettings();
   }, []);
 
   // Handle Theme Toggle
-  const toggleTheme = (light: boolean) => {
+  const toggleTheme = async (light: boolean) => {
     setIsLight(light);
     if (light) {
       document.documentElement.classList.add("light-theme");
-      localStorage.setItem("focura.theme", "light");
     } else {
       document.documentElement.classList.remove("light-theme");
-      localStorage.setItem("focura.theme", "dark");
     }
     bus.emit("theme:changed", { theme: light ? "light" : "dark" });
+
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ theme: light ? "light" : "dark" })
+          .eq("id", user.id);
+      }
+    } catch (err) {
+      console.warn("Failed to save theme in profile:", err);
+    }
   };
 
   // Save Settings handler
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavedStatus(null);
 
-    // Save profile settings
-    localStorage.setItem("focura.username", name.trim());
-    localStorage.setItem("focura.avatar", avatar);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // Save timer settings
-    localStorage.setItem("focura.timer.focus_duration", focusDur.toString());
-    localStorage.setItem("focura.timer.short_break_duration", shortBreak.toString());
-    localStorage.setItem("focura.timer.long_break_duration", longBreak.toString());
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          username: name.trim(),
+          name: name.trim(),
+          avatar_emoji: avatar,
+          focus_duration: focusDur,
+          short_break_duration: shortBreak,
+          long_break_duration: longBreak,
+          sounds_enabled: soundsEnabled,
+          notifications_enabled: notificationsEnabled,
+        })
+        .eq("id", user.id);
 
-    // Save other settings
-    localStorage.setItem("focura.settings.sounds_enabled", soundsEnabled.toString());
-    localStorage.setItem("focura.settings.notifications_enabled", notificationsEnabled.toString());
+      if (error) throw error;
 
-    // Trigger feedback
-    setSavedStatus("Settings saved successfully! ✨");
-    bus.emit("pet:react", { message: "Preferences adjusted. Feels clean! ⚙️" });
+      // Trigger feedback
+      setSavedStatus("Settings saved successfully! ✨");
+      bus.emit("pet:react", { message: "Preferences adjusted. Feels clean! ⚙️" });
+    } catch (err) {
+      console.warn("Failed to save settings:", err);
+      setSavedStatus("Error saving settings.");
+    }
 
     // Clear feedback timer
     setTimeout(() => {
@@ -96,26 +135,49 @@ export default function SettingsPage() {
   };
 
   // Reset Data handler
-  const handleResetData = () => {
-    // Clear localStorage items except critical auth
-    const keysToKeep = ["sb-", "supabase.auth"];
-    const keysToRemove: string[] = [];
-
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && !keysToKeep.some(k => key.startsWith(k))) {
-        keysToRemove.push(key);
-      }
-    }
-
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    // Trigger reset reaction
+  const handleResetData = async () => {
     setShowResetConfirm(false);
-    setSavedStatus("Data cleared! Reloading...");
-    setTimeout(() => {
-      window.location.reload();
-    }, 1200);
+    setSavedStatus("Clearing data from the cloud...");
+
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Delete from all user tables
+      await Promise.all([
+        supabase.from("tasks").delete().eq("user_id", user.id),
+        supabase.from("subtasks").delete().eq("user_id", user.id),
+        supabase.from("sessions").delete().eq("user_id", user.id),
+        supabase.from("coach_messages").delete().eq("user_id", user.id),
+        supabase.from("memory_notes").delete().eq("user_id", user.id),
+        supabase.from("contracts").delete().eq("user_id", user.id),
+        supabase.from("contract_checkins").delete().eq("user_id", user.id),
+        supabase.from("challenges").delete().eq("user_id", user.id),
+        supabase.from("user_rewards").delete().eq("user_id", user.id),
+      ]);
+
+      // Reset profile
+      await supabase.from("profiles").update({
+        total_xp: 0,
+        level: 1,
+        theme: "dark",
+        focus_duration: 25,
+        short_break_duration: 5,
+        long_break_duration: 15,
+        sounds_enabled: true,
+        notifications_enabled: true,
+        onboarding_complete: false,
+      }).eq("id", user.id);
+
+      setSavedStatus("Data cleared! Reloading...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (err) {
+      console.warn("Failed to reset data:", err);
+      setSavedStatus("Reset failed. Try again.");
+    }
   };
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { bus } from "@/lib/events";
 import {
   audioEngine,
   BUILT_IN_PRESETS,
@@ -85,37 +86,27 @@ export default function MusicPage() {
     setPlaying(audioEngine.getPlayingId());
   }, []);
 
-  // Listen to battle state simulation when sync is enabled
-  useEffect(() => {
-    if (syncWithBattle) {
-      // Periodic check or simulate phase transitions
-      const interval = setInterval(() => {
-        // Read current timer details from localStorage if present
-        const activeTimer = localStorage.getItem("focura.timer.current_phase");
-        if (activeTimer) {
-          if (activeTimer.includes("Entering") && playing !== "deep-work") {
-            audioEngine.playMix(BUILT_IN_PRESETS[0].volumes, "deep-work");
-            setPlaying("deep-work");
-          } else if (activeTimer.includes("Through") && playing !== "binaural-gamma") {
-            audioEngine.playMix(BUILT_IN_PRESETS[1].volumes, "binaural-gamma");
-            setPlaying("binaural-gamma");
-          } else if (activeTimer.includes("Final") && playing !== "alpha-flow") {
-            audioEngine.playMix(BUILT_IN_PRESETS[2].volumes, "alpha-flow");
-            setPlaying("alpha-flow");
-          } else if (activeTimer.includes("Legendary") && playing !== "adhd-calm") {
-            audioEngine.playMix(BUILT_IN_PRESETS[3].volumes, "adhd-calm");
-            setPlaying("adhd-calm");
-          }
-        }
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [syncWithBattle, playing]);
-
   const stopAudio = useCallback(() => {
     audioEngine.stop();
     setPlaying(null);
   }, []);
+
+  // Listen to battle state simulation when sync is enabled
+  useEffect(() => {
+    if (syncWithBattle) {
+      const unsubStart = bus.on("timer:start", () => {
+        audioEngine.playMix(BUILT_IN_PRESETS[0].volumes, "deep-work");
+        setPlaying("deep-work");
+      });
+      const unsubStop = bus.on("timer:stop", () => {
+        stopAudio();
+      });
+      return () => {
+        unsubStart();
+        unsubStop();
+      };
+    }
+  }, [syncWithBattle, stopAudio]);
 
   const handleTileClick = useCallback(
     (preset: Preset) => {

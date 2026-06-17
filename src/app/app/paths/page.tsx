@@ -43,8 +43,24 @@ export default function PathsPage() {
   const [name, setName] = useState("knight");
 
   useEffect(() => {
-    const saved = localStorage.getItem("focura.username");
-    if (saved) setName(saved);
+    async function loadProfileName() {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username, name")
+            .eq("id", user.id)
+            .single();
+          if (profile) {
+            setName(profile.username || profile.name || user.email?.split("@")[0] || "knight");
+          }
+        }
+      } catch {}
+    }
+    loadProfileName();
   }, []);
 
   const activePaths = paths.filter((p) => p.nodes.some((n) => n.status !== "done"));

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useXp } from "@/components/providers/XpProvider";
+import { createClient } from "@/lib/supabase/client";
+import { useTasks } from "@/hooks/useTasks";
 import { 
   IconSword, 
   IconShield, 
@@ -42,39 +44,57 @@ function formatFocusTime(minutes: number): string {
 
 export default function StatsPage() {
   const { totalXp } = useXp();
+  const { tasks, loaded: tasksLoaded } = useTasks();
   const [sessions, setSessions] = useState<FocusSession[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [weekBars, setWeekBars] = useState<DayBar[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const rawSessions = localStorage.getItem("focura.sessions.v1");
-      const rawTasks = localStorage.getItem("focura.tasks.v1");
-      const parsedSessions: FocusSession[] = rawSessions ? JSON.parse(rawSessions) : [];
-      const parsedTasks: Task[] = rawTasks ? JSON.parse(rawTasks) : [];
-      setSessions(parsedSessions);
-      setTasks(parsedTasks);
+    async function loadSessions() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const bars: DayBar[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        const start = d.getTime();
-        const end = start + 86_400_000;
-        const dayMinutes = parsedSessions
-          .filter((s) => s.endedAt >= start && s.endedAt < end)
-          .reduce((acc, s) => acc + s.actualMinutes, 0);
-        bars.push({ label: dayNames[d.getDay()], minutes: dayMinutes });
+        // Fetch sessions
+        const { data: dbSessions } = await supabase
+          .from("sessions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("ended_at", { ascending: false });
+
+        const parsedSessions: FocusSession[] = (dbSessions || []).map((s: any) => ({
+          id: s.id,
+          taskId: s.task_id,
+          taskTitle: s.task_title || "Free focus",
+          plannedMinutes: s.planned_minutes,
+          actualMinutes: s.actual_minutes,
+          endedAt: s.ended_at ? new Date(s.ended_at).getTime() : Date.now(),
+        }));
+        setSessions(parsedSessions);
+
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const bars: DayBar[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          d.setHours(0, 0, 0, 0);
+          const start = d.getTime();
+          const end = start + 86_400_000;
+          const dayMinutes = parsedSessions
+            .filter((s) => s.endedAt >= start && s.endedAt < end)
+            .reduce((acc, s) => acc + s.actualMinutes, 0);
+          bars.push({ label: dayNames[d.getDay()], minutes: dayMinutes });
+        }
+        setWeekBars(bars);
+      } catch (err) {
+        console.warn("Failed to load sessions for stats:", err);
+      } finally {
+        setLoaded(true);
       }
-      setWeekBars(bars);
-    } catch {
-      /* storage unavailable */
     }
-    setLoaded(true);
-  }, []);
+    loadSessions();
+  }, [tasksLoaded]);
 
   const totalFocusMinutes = sessions.reduce((acc, s) => acc + s.actualMinutes, 0);
   const doneTasks = tasks.filter((t) => t.done).length;
@@ -101,7 +121,7 @@ export default function StatsPage() {
   const longestSession = sessions.length > 0 ? Math.max(...sessions.map((s) => s.actualMinutes)) : 0;
   const mostProductiveDay = weekBars.reduce((max, b) => (b.minutes > max.minutes ? b : max), { label: "—", minutes: 0 });
 
-  if (!loaded)
+  if (!loaded || !tasksLoaded)
     return (
       <div className="flex min-h-screen items-center justify-center bg-realm-bg text-realm-text">
         <div className="flex flex-col items-center gap-4">

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import type { Task } from "@/lib/tasks/types";
+import { createClient } from "@/lib/supabase/client";
+import { useTasks } from "@/hooks/useTasks";
 import { 
   IconSparkles, 
   IconShieldOff, 
@@ -22,8 +24,6 @@ interface MemoryNote {
   tag: MemoryTag;
   createdAt: number;
 }
-
-const MEMORY_STORE = "focura.memory.v1";
 
 const TAG_META: Record<MemoryTag, { label: string; icon: React.ReactNode; color: string; bg: string; border: string; leftBorder: string }> = {
   idea: {
@@ -80,7 +80,7 @@ const TAGS: MemoryTag[] = ["idea", "block", "thought", "tip"];
 
 export default function MemoryPage() {
   const [notes, setNotes] = useState<MemoryNote[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks, loaded: tasksLoaded } = useTasks();
   const [noteText, setNoteText] = useState("");
   const [selectedTag, setSelectedTag] = useState<MemoryTag>("thought");
   const [filterTag, setFilterTag] = useState<MemoryTag | "all">("all");
@@ -89,38 +89,92 @@ export default function MemoryPage() {
   const [formOpen, setFormOpen] = useState(true);
 
   useEffect(() => {
-    try {
-      const rawNotes = localStorage.getItem(MEMORY_STORE);
-      const rawTasks = localStorage.getItem("focura.tasks.v1");
-      if (rawNotes) setNotes(JSON.parse(rawNotes) as MemoryNote[]);
-      if (rawTasks) setTasks(JSON.parse(rawTasks) as Task[]);
-    } catch { /* noop */ }
-    setLoaded(true);
+    async function loadNotes() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from("memory_notes")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        if (data) {
+          const mapped = data.map((d: any) => ({
+            id: d.id,
+            text: d.text,
+            tag: d.tag as MemoryTag,
+            createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now(),
+          }));
+          setNotes(mapped);
+        }
+      } catch (err) {
+        console.warn("Failed to load memory notes from Supabase:", err);
+      } finally {
+        setLoaded(true);
+      }
+    }
+    loadNotes();
   }, []);
 
-  useEffect(() => {
-    if (loaded) {
-      try {
-        localStorage.setItem(MEMORY_STORE, JSON.stringify(notes));
-      } catch { /* noop */ }
-    }
-  }, [notes, loaded]);
-
-  function handleAddNote() {
+  async function handleAddNote() {
     const trimmed = noteText.trim();
     if (!trimmed) return;
-    const note: MemoryNote = {
-      id: uid(),
+    const noteId = uid();
+    const newNote: MemoryNote = {
+      id: noteId,
       text: trimmed,
       tag: selectedTag,
       createdAt: Date.now(),
     };
-    setNotes((prev) => [note, ...prev]);
+    
+    // Optimistic update
+    setNotes((prev) => [newNote, ...prev]);
     setNoteText("");
+
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase.from("memory_notes").insert({
+        id: noteId,
+        user_id: user.id,
+        text: trimmed,
+        tag: selectedTag,
+        created_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    } catch (err) {
+      console.warn("Failed to add memory note:", err);
+      // Revert on failure
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    }
   }
 
-  function handleDeleteNote(id: string) {
+  async function handleDeleteNote(id: string) {
+    const originalNotes = [...notes];
     setNotes((prev) => prev.filter((n) => n.id !== id));
+
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("memory_notes")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    } catch (err) {
+      console.warn("Failed to delete memory note:", err);
+      setNotes(originalNotes);
+    }
   }
 
   const taskMemoryNotes = useMemo(
@@ -147,7 +201,7 @@ export default function MemoryPage() {
     );
   }, [taskMemoryNotes, search]);
 
-  if (!loaded)
+  if (!loaded || !tasksLoaded)
     return (
       <div className="flex min-h-screen items-center justify-center bg-realm-bg text-realm-text">
         <div className="relative">

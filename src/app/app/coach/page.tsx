@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { Task } from "@/lib/tasks/types";
 import type { FocusSession } from "@/lib/sessions";
+import { createClient } from "@/lib/supabase/client";
+import { useTasks } from "@/hooks/useTasks";
 import { 
   IconSparkles, 
   IconWand, 
@@ -197,80 +199,109 @@ export default function CoachPage() {
   const [typing, setTyping] = useState(false);
   const [displayedCoach, setDisplayedCoach] = useState<Record<string, string>>({});
   const [sessions, setSessions] = useState<FocusSession[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks } = useTasks();
   const [insights, setInsights] = useState<Insight[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load data
   useEffect(() => {
-    try {
-      const rawSessions = localStorage.getItem("focura.sessions.v1");
-      const rawTasks = localStorage.getItem("focura.tasks.v1");
-      const parsedSessions: FocusSession[] = rawSessions ? JSON.parse(rawSessions) : [];
-      const parsedTasks: Task[] = rawTasks ? JSON.parse(rawTasks) : [];
-      setSessions(parsedSessions);
-      setTasks(parsedTasks);
-
-      const insightList: Insight[] = [];
-      if (parsedSessions.length > 0) {
-        insightList.push({ 
-          icon: <IconShield size={14} className="text-realm-teal" />, 
-          text: `${parsedSessions.length} focus battle${parsedSessions.length !== 1 ? "s" : ""} logged` 
-        });
-        const avg = Math.round(parsedSessions.reduce((a, s) => a + s.actualMinutes, 0) / parsedSessions.length);
-        insightList.push({ 
-          icon: <IconClock size={14} className="text-realm-gold" />, 
-          text: `Avg battle: ${avg} min` 
-        });
-      }
-      const done = parsedTasks.filter((t) => t.done).length;
-      if (parsedTasks.length > 0) {
-        insightList.push({ 
-          icon: <IconSword size={14} className="text-realm-purple" />, 
-          text: `${done}/${parsedTasks.length} missions completed` 
-        });
-      }
-      if (insightList.length === 0) {
-        insightList.push({ 
-          icon: <IconSparkles size={14} className="text-realm-gold" />, 
-          text: "Seek counsel from the Sage on focus or ADHD" 
-        });
-      }
-      setInsights(insightList);
-    } catch { /* noop */ }
-
-    try {
-      const raw = localStorage.getItem(COACH_STORE);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Message[];
-        setMessages(parsed);
-        const displayed: Record<string, string> = {};
-        parsed.forEach((m) => {
-          if (m.role === "coach") displayed[m.id] = m.text;
-        });
-        setDisplayedCoach(displayed);
-      } else {
-        const welcome: Message = {
-          id: uid(),
-          role: "coach",
-          text: "Hail, traveler! I am the Sage. 🔮 I am here to assist you in fighting the Fog, understanding your cognitive rhythms, and sharpening your focus. What counsel do you seek today?",
-          ts: Date.now(),
-        };
-        setMessages([welcome]);
-        setDisplayedCoach({ [welcome.id]: welcome.text });
-      }
-    } catch { /* noop */ }
-  }, []);
-
-  // Persist messages
-  useEffect(() => {
-    if (messages.length > 0) {
+    async function loadData() {
       try {
-        localStorage.setItem(COACH_STORE, JSON.stringify(messages.slice(-100)));
-      } catch { /* noop */ }
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Fetch sessions
+        const { data: dbSessions } = await supabase
+          .from("sessions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("ended_at", { ascending: false });
+
+        const parsedSessions: FocusSession[] = (dbSessions || []).map((s: any) => ({
+          id: s.id,
+          taskId: s.task_id,
+          taskTitle: s.task_title || "Free focus",
+          plannedMinutes: s.planned_minutes,
+          actualMinutes: s.actual_minutes,
+          endedAt: s.ended_at ? new Date(s.ended_at).getTime() : Date.now(),
+        }));
+        setSessions(parsedSessions);
+
+        // Fetch coach messages
+        const { data: dbMessages } = await supabase
+          .from("coach_messages")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true });
+
+        const parsedMessages: Message[] = (dbMessages || []).map((m: any) => ({
+          id: m.id || uid(),
+          role: m.role as Role,
+          text: m.text,
+          ts: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
+        }));
+
+        if (parsedMessages.length === 0) {
+          const welcome: Message = {
+            id: uid(),
+            role: "coach",
+            text: "Hail, traveler! I am the Sage. 🔮 I am here to assist you in fighting the Fog, understanding your cognitive rhythms, and sharpening your focus. What counsel do you seek today?",
+            ts: Date.now(),
+          };
+          setMessages([welcome]);
+          setDisplayedCoach({ [welcome.id]: welcome.text });
+          // Save welcome message
+          await supabase.from("coach_messages").insert({
+            id: welcome.id,
+            user_id: user.id,
+            role: welcome.role,
+            text: welcome.text,
+            created_at: new Date(welcome.ts).toISOString(),
+          });
+        } else {
+          setMessages(parsedMessages);
+          const displayed: Record<string, string> = {};
+          parsedMessages.forEach((m) => {
+            if (m.role === "coach") displayed[m.id] = m.text;
+          });
+          setDisplayedCoach(displayed);
+        }
+
+        // Setup Insights
+        const insightList: Insight[] = [];
+        if (parsedSessions.length > 0) {
+          insightList.push({ 
+            icon: <IconShield size={14} className="text-realm-teal" />, 
+            text: `${parsedSessions.length} focus battle${parsedSessions.length !== 1 ? "s" : ""} logged` 
+          });
+          const avg = Math.round(parsedSessions.reduce((a, s) => a + s.actualMinutes, 0) / parsedSessions.length);
+          insightList.push({ 
+            icon: <IconClock size={14} className="text-realm-gold" />, 
+            text: `Avg battle: ${avg} min` 
+          });
+        }
+        const done = tasks.filter((t) => t.done).length;
+        if (tasks.length > 0) {
+          insightList.push({ 
+            icon: <IconSword size={14} className="text-realm-purple" />, 
+            text: `${done}/${tasks.length} missions completed` 
+          });
+        }
+        if (insightList.length === 0) {
+          insightList.push({ 
+            icon: <IconSparkles size={14} className="text-realm-gold" />, 
+            text: "Seek counsel from the Sage on focus or ADHD" 
+          });
+        }
+        setInsights(insightList);
+      } catch (err) {
+        console.warn("Failed to load coach data from Supabase:", err);
+      }
     }
-  }, [messages]);
+    loadData();
+  }, [tasks]);
 
   // Auto-scroll inside chat
   useEffect(() => {
@@ -301,13 +332,28 @@ export default function CoachPage() {
     const trimmed = (text ?? input).trim();
     if (!trimmed || typing) return;
 
-    const userMsg: Message = { id: uid(), role: "user", text: trimmed, ts: Date.now() };
+    const userMsgId = uid();
+    const userMsg: Message = { id: userMsgId, role: "user", text: trimmed, ts: Date.now() };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
     setTyping(true);
 
     try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Save user message
+      await supabase.from("coach_messages").insert({
+        id: userMsgId,
+        user_id: user.id,
+        role: userMsg.role,
+        text: userMsg.text,
+        created_at: new Date(userMsg.ts).toISOString(),
+      });
+
+      // Fetch AI response
       const response = await fetch("/api/coach", {
         method: "POST",
         headers: {
@@ -320,20 +366,50 @@ export default function CoachPage() {
         }),
       });
 
+      let replyText = "";
       if (!response.ok) {
         throw new Error("API failed");
+      } else {
+        const data = await response.json();
+        replyText = data.reply;
       }
 
-      const data = await response.json();
-      const coachMsg: Message = { id: uid(), role: "coach", text: data.reply, ts: Date.now() };
+      const coachMsgId = uid();
+      const coachMsg: Message = { id: coachMsgId, role: "coach", text: replyText, ts: Date.now() };
       setMessages((prev) => [...prev, coachMsg]);
       typewriterMessage(coachMsg);
+
+      // Save coach message
+      await supabase.from("coach_messages").insert({
+        id: coachMsgId,
+        user_id: user.id,
+        role: coachMsg.role,
+        text: coachMsg.text,
+        created_at: new Date(coachMsg.ts).toISOString(),
+      });
     } catch (err) {
-      console.warn("API failed, falling back to heuristics:", err);
+      console.warn("API or DB failed, falling back to heuristics:", err);
       const replyText = coachReply(trimmed, sessions, tasks);
-      const coachMsg: Message = { id: uid(), role: "coach", text: replyText, ts: Date.now() };
+      const coachMsgId = uid();
+      const coachMsg: Message = { id: coachMsgId, role: "coach", text: replyText, ts: Date.now() };
       setMessages((prev) => [...prev, coachMsg]);
       typewriterMessage(coachMsg);
+
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("coach_messages").insert({
+            id: coachMsgId,
+            user_id: user.id,
+            role: coachMsg.role,
+            text: coachMsg.text,
+            created_at: new Date(coachMsg.ts).toISOString(),
+          });
+        }
+      } catch (dbErr) {
+        console.warn("DB insert fallback failed:", dbErr);
+      }
     } finally {
       setTyping(false);
     }
@@ -346,15 +422,34 @@ export default function CoachPage() {
     }
   }
 
-  function clearChat() {
-    const welcome: Message = {
-      id: uid(),
-      role: "coach",
-      text: "A fresh parchment! 📜 I stand ready to offer counsel. Speak, knight, what sits upon your mind?",
-      ts: Date.now(),
-    };
-    setMessages([welcome]);
-    setDisplayedCoach({ [welcome.id]: welcome.text });
+  async function clearChat() {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Delete all coach messages for this user
+      await supabase.from("coach_messages").delete().eq("user_id", user.id);
+
+      const welcome: Message = {
+        id: uid(),
+        role: "coach",
+        text: "A fresh parchment! 📜 I stand ready to offer counsel. Speak, knight, what sits upon your mind?",
+        ts: Date.now(),
+      };
+      setMessages([welcome]);
+      setDisplayedCoach({ [welcome.id]: welcome.text });
+
+      await supabase.from("coach_messages").insert({
+        id: welcome.id,
+        user_id: user.id,
+        role: welcome.role,
+        text: welcome.text,
+        created_at: new Date(welcome.ts).toISOString(),
+      });
+    } catch (err) {
+      console.warn("Failed to clear chat in Supabase:", err);
+    }
   }
 
   return (
