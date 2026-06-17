@@ -7,18 +7,18 @@ updated: 2026-06-16T12:45:00Z
 ## Current Position
 
 **Milestone:** focura-rebuild
-**Phase:** 3 - The War Room & The Scroll
-**Status:** executing
-**Plan:** Plan 3.1 - Redesign Dashboard (`src/app/app/page.tsx`) to implement The War Room layout, Squire's Trial checklist, and Battle Fury ring
+**Phase:** 6 - Performance & Production Audit
+**Status:** planning
+**Plan:** Plan 6.1 - Implement scroll performance optimizations for GSAP ScrollTrigger timeline and Three.js rendering quality/visibility toggles
 
 ## Last Action
 
-Completed Phase 2 (Cinematic Landing page with CSS drifting fog, silhouettes and journal entries, and rebranded top navigation app layout). Verified compilation.
+Verified that Phases 3, 4, and 5 are completely coded, type-checked, and integrated. Updated ROADMAP.md to mark them complete.
 
 ## Next Steps
 
-1. Redesign Dashboard (`src/app/app/page.tsx`) as The War Room.
-2. Rebuild Tasks Page (`src/app/app/tasks/page.tsx`) as The Scroll.
+1. Create Phase 6 directory and 1-PLAN.md containing detailed tasks for landing page scroll performance optimizations and database/build validation.
+2. Run implementation.
 
 ## Active Decisions
 
@@ -41,4 +41,4 @@ Things to watch but not blocking:
 
 ## Session Context
 
-Beginning Phase 1 implementation.
+Beginning Phase 6 implementation plan.
