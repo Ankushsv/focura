@@ -1375,3 +1375,33 @@ body {
     animation: none !important;
   }
 }
+
+/* ── Custom Odin's Eye Cursor & Astrolabe Dial Animations ── */
+.cursor-follower {
+  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.cursor-hover-active {
+  width: 65px !important;
+  height: 65px !important;
+}
+.cursor-hover-active .cursor-eye-element {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+.cursor-hover-active .cursor-compass-element {
+  opacity: 1 !important;
+  animation: spin-compass 12s linear infinite;
+}
+@keyframes spin-compass {
+  from { transform: rotate(0deg); transform-origin: 25px 25px; }
+  to { transform: rotate(360deg); transform-origin: 25px 25px; }
+}
+
+.animate-spin-slow {
+  animation: spin-clockwise 45s linear infinite;
+  transform-origin: 400px 400px;
+}
+@keyframes spin-clockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

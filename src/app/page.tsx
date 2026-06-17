@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Draggable } from "gsap/Draggable";
 import { useRouter } from "next/navigation";
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
+  gsap.registerPlugin(ScrollTrigger, Draggable);
 }
 
 // ── WEB AUDIO API drone manager ──
@@ -40,12 +41,13 @@ class AudioManager {
       const filter = ctx.createBiquadFilter();
       filter.type = "lowpass";
       filter.frequency.setValueAtTime(200, ctx.currentTime);
+      filter.Q.setValueAtTime(1, ctx.currentTime);
       filter.connect(masterGain);
       this.filter = filter;
 
-      // Pulse Gain Node for LFO battle pulse
+      // Pulse low frequency gain node
       const pulseGain = ctx.createGain();
-      pulseGain.gain.setValueAtTime(1.0, ctx.currentTime);
+      pulseGain.gain.setValueAtTime(0.04, ctx.currentTime);
       pulseGain.connect(filter);
 
       // Low Osc (55Hz)
@@ -138,23 +140,17 @@ class AudioManager {
       this.init();
     }
     if (this.ctx && this.masterGain) {
-      if (mute) {
-        this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
-      } else {
-        if (this.ctx.state === "suspended") {
-          this.ctx.resume();
-        }
-        this.masterGain.gain.setTargetAtTime(1.0, this.ctx.currentTime, 0.2);
-      }
+      const targetGain = mute ? 0 : 0.4;
+      this.masterGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.2);
     }
   }
 
   destroy() {
-    if (this.lowOsc) this.lowOsc.stop();
-    if (this.highOsc) this.highOsc.stop();
-    if (this.lfo) this.lfo.stop();
-    if (this.shimmer) this.shimmer.stop();
-    if (this.ctx) this.ctx.close();
+    if (this.ctx) {
+      try {
+        this.ctx.close();
+      } catch {}
+    }
   }
 }
 
@@ -163,7 +159,6 @@ export default function LandingPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Act text refs
   const act1Ref = useRef<HTMLDivElement | null>(null);
   const act2Ref = useRef<HTMLDivElement | null>(null);
   const act3Ref = useRef<HTMLDivElement | null>(null);
@@ -181,6 +176,10 @@ export default function LandingPage() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
+  
+  const dragObjRef = useRef<any>(null);
+  const cursorRef = useRef<HTMLDivElement | null>(null);
+  const cursorPupilRef = useRef<SVGCircleElement | null>(null);
 
   // Helper for cleanup recursion
   const disposeNode = (node: any) => {
@@ -195,739 +194,154 @@ export default function LandingPage() {
     }
   };
 
-  // Setup sound interactions
-  useEffect(() => {
-    const handleInteraction = () => {
-      if (audioManagerRef.current && !isMuted) {
-        audioManagerRef.current.setMute(false);
-      }
-      window.removeEventListener("scroll", handleInteraction);
-      window.removeEventListener("click", handleInteraction);
-    };
-
-    window.addEventListener("scroll", handleInteraction);
-    window.addEventListener("click", handleInteraction);
-
-    return () => {
-      window.removeEventListener("scroll", handleInteraction);
-      window.removeEventListener("click", handleInteraction);
-    };
-  }, [isMuted]);
-
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
 
-    // Mobile check
     const isMobile = window.innerWidth < 768;
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Initialize Audio Manager
     const audioManager = new AudioManager();
     audioManagerRef.current = audioManager;
 
-    // 1. Init Scene, Camera, Renderer
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    const skyColor = new THREE.Color("#0e0c0a");
-    scene.background = skyColor;
+    scene.background = new THREE.Color("#0a0907");
+    scene.fog = new THREE.FogExp2(0x231d17, 0.08);
 
-    // Setup Fog
-    scene.fog = new THREE.FogExp2(0xf5efe8, 0.08);
-
-    const camera = new THREE.PerspectiveCamera(
-      45,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvasRef.current,
-      antialias: true,
-      alpha: true,
-      powerPreference: "high-performance",
-    });
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     rendererRef.current = renderer;
 
-    // 2. Build Ground
-    const groundWidth = 200;
-    const groundDepth = 800;
-    const groundSegmentsW = 30;
-    const groundSegmentsD = 100;
-    const groundGeo = new THREE.PlaneGeometry(
-      groundWidth,
-      groundDepth,
-      groundSegmentsW,
-      groundSegmentsD
-    );
-
-    // Apply Vertex Noise before rotation (displace Z which becomes height)
+    const groundGeo = new THREE.PlaneGeometry(200, 200, 30, 30);
     const posAttr = groundGeo.attributes.position;
     for (let i = 0; i < posAttr.count; i++) {
       const x = posAttr.getX(i);
       const y = posAttr.getY(i);
-      const zNoise =
-        Math.sin(x * 0.05) * Math.cos(y * 0.05) * 1.5 + Math.sin(x * 0.1) * 0.5;
-      posAttr.setZ(i, zNoise);
+      posAttr.setZ(i, Math.sin(x * 0.05) * Math.cos(y * 0.05) * 1.5 + Math.sin(x * 0.1) * 0.5);
     }
-    groundGeo.computeVertexNormals();
     groundGeo.rotateX(-Math.PI / 2);
-
-    const groundMat = new THREE.MeshLambertMaterial({
-      color: 0x1a1410,
-      flatShading: true,
-    });
+    const groundMat = new THREE.MeshLambertMaterial({ color: 0x13110f, flatShading: true });
     const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.position.set(0, 0, 0);
     scene.add(ground);
 
-    // 3. Build Knight
-    const knightGroup = new THREE.Group();
-    knightGroup.position.set(0, 0.4, 0);
-    scene.add(knightGroup);
-
-    // Shared Materials
-    const knightBodyMaterial = new THREE.MeshLambertMaterial({
-      color: 0x3a3028,
-      flatShading: true,
-    });
-
-    const capeMaterial = new THREE.MeshLambertMaterial({
-      color: 0x7a1a1a,
-      flatShading: true,
-      transparent: true,
-      opacity: 0,
-    });
-
-    const crownMaterial = new THREE.MeshLambertMaterial({
-      color: 0xf0a868,
-      flatShading: true,
-    });
-
-    const swordMaterial = new THREE.MeshLambertMaterial({
-      color: 0x8a8070,
-      flatShading: true,
-    });
-
-    // Torso (0.5, 0.7, 0.3)
-    const torsoMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.7, 0.3),
-      knightBodyMaterial
-    );
-    torsoMesh.position.set(0, 0.35, 0);
-    knightGroup.add(torsoMesh);
-
-    // Head Joint and Box
-    const headJoint = new THREE.Group();
-    headJoint.position.set(0, 0.7, 0);
-    const headMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.35, 0.35, 0.35),
-      knightBodyMaterial
-    );
-    headMesh.position.set(0, 0.175, 0);
-    headJoint.add(headMesh);
-    knightGroup.add(headJoint);
-
-    // Crown (composed of a gold band and 4 cones)
-    const crownGroup = new THREE.Group();
-    crownGroup.scale.set(0, 0, 0); // start hidden
-
-    const crownBand = new THREE.Mesh(
-      new THREE.BoxGeometry(0.38, 0.06, 0.38),
-      crownMaterial
-    );
-    crownBand.position.set(0, 0.38, 0);
-    crownGroup.add(crownBand);
-
-    const spikeGeo = new THREE.ConeGeometry(0.05, 0.15, 4);
-    const spike1 = new THREE.Mesh(spikeGeo, crownMaterial);
-    spike1.position.set(-0.16, 0.45, -0.16);
-    crownGroup.add(spike1);
-
-    const spike2 = new THREE.Mesh(spikeGeo, crownMaterial);
-    spike2.position.set(0.16, 0.45, -0.16);
-    crownGroup.add(spike2);
-
-    const spike3 = new THREE.Mesh(spikeGeo, crownMaterial);
-    spike3.position.set(-0.16, 0.45, 0.16);
-    crownGroup.add(spike3);
-
-    const spike4 = new THREE.Mesh(spikeGeo, crownMaterial);
-    spike4.position.set(0.16, 0.45, 0.16);
-    crownGroup.add(spike4);
-
-    headJoint.add(crownGroup);
-
-    // Rig limbs for rotation at joint pivot
-    const leftShoulder = new THREE.Group();
-    leftShoulder.position.set(-0.35, 0.6, 0);
-    const leftArm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, 0.5, 0.2),
-      knightBodyMaterial
-    );
-    leftArm.position.set(0, -0.25, 0);
-    leftShoulder.add(leftArm);
-    knightGroup.add(leftShoulder);
-
-    const rightShoulder = new THREE.Group();
-    rightShoulder.position.set(0.35, 0.6, 0);
-    const rightArm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, 0.5, 0.2),
-      knightBodyMaterial
-    );
-    rightArm.position.set(0, -0.25, 0);
-    rightShoulder.add(rightArm);
-    knightGroup.add(rightShoulder);
-
-    // Sword in right arm
     const swordGroup = new THREE.Group();
-    swordGroup.position.set(0, -0.45, 0.1);
-    swordGroup.rotation.x = Math.PI / 2; // point forward
+    swordGroup.position.set(0, 1.2, 0);
+    scene.add(swordGroup);
 
-    const swordBlade = new THREE.Mesh(
-      new THREE.BoxGeometry(0.06, 0.5, 0.02),
-      swordMaterial
-    );
-    swordBlade.position.set(0, 0.25, 0);
-    swordGroup.add(swordBlade);
+    const bladeMaterial = new THREE.MeshStandardMaterial({ color: 0xddeeff, metalness: 0.9, roughness: 0.1, flatShading: true });
+    const guardMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2, flatShading: true });
+    const gripMaterial = new THREE.MeshStandardMaterial({ color: 0x2b1e15, roughness: 0.7, flatShading: true });
+    const runicGlowMaterial = new THREE.MeshBasicMaterial({ color: 0xffa500 });
 
-    const swordGuard = new THREE.Mesh(
-      new THREE.BoxGeometry(0.18, 0.03, 0.05),
-      crownMaterial // gold trim
-    );
-    swordGuard.position.set(0, 0, 0);
-    swordGroup.add(swordGuard);
+    const bladeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.6, 0.04), bladeMaterial);
+    bladeMesh.position.set(0, 1.3, 0);
+    swordGroup.add(bladeMesh);
+    const runicGroove = new THREE.Mesh(new THREE.BoxGeometry(0.03, 1.8, 0.05), runicGlowMaterial);
+    runicGroove.position.set(0, 1.3, 0);
+    swordGroup.add(runicGroove);
+    const guardMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 0.12), guardMaterial);
+    swordGroup.add(guardMesh);
+    const gripMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8), gripMaterial);
+    gripMesh.position.set(0, -0.35, 0);
+    swordGroup.add(gripMesh);
+    const pommelMesh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), guardMaterial);
+    pommelMesh.position.set(0, -0.7, 0);
+    swordGroup.add(pommelMesh);
 
-    const swordHilt = new THREE.Mesh(
-      new THREE.BoxGeometry(0.04, 0.12, 0.04),
-      knightBodyMaterial
-    );
-    swordHilt.position.set(0, -0.06, 0);
-    swordGroup.add(swordHilt);
-
-    rightShoulder.add(swordGroup);
-
-    // Legs
-    const leftHip = new THREE.Group();
-    leftHip.position.set(-0.15, 0.3, 0);
-    const leftLeg = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.55, 0.22),
-      knightBodyMaterial
-    );
-    leftLeg.position.set(0, -0.275, 0);
-    leftHip.add(leftLeg);
-    knightGroup.add(leftHip);
-
-    const rightHip = new THREE.Group();
-    rightHip.position.set(0.15, 0.3, 0);
-    const rightLeg = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.55, 0.22),
-      knightBodyMaterial
-    );
-    rightLeg.position.set(0, -0.275, 0);
-    rightHip.add(rightLeg);
-    knightGroup.add(rightHip);
-
-    // Cape (behind torso)
-    const capeMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.6, 0.8),
-      capeMaterial
-    );
-    capeMesh.position.set(0, 0.25, -0.16);
-    knightGroup.add(capeMesh);
-
-    // 4. Build Castle
-    const castleGroup = new THREE.Group();
-    castleGroup.position.set(0, 0, -20);
-    castleGroup.scale.set(0.3, 0.3, 0.3); // starts scaled down
-    scene.add(castleGroup);
-
-    const castleMaterial = new THREE.MeshLambertMaterial({
-      color: 0x2a2018,
-      flatShading: true,
-    });
-
-    // Castle base floor
-    const castleFloor = new THREE.Mesh(
-      new THREE.PlaneGeometry(15, 20),
-      new THREE.MeshLambertMaterial({ color: 0x1e1610, flatShading: true })
-    );
-    castleFloor.rotateX(-Math.PI / 2);
-    castleFloor.position.set(0, 0.01, -4);
-    castleGroup.add(castleFloor);
-
-    // Keep keep (6, 8, 4)
-    const mainKeep = new THREE.Mesh(
-      new THREE.BoxGeometry(6, 8, 4),
-      castleMaterial
-    );
-    mainKeep.position.set(0, 4, -8);
-    castleGroup.add(mainKeep);
-
-    // Towers left/right
-    const towerL = new THREE.Mesh(
-      new THREE.BoxGeometry(2, 10, 2),
-      castleMaterial
-    );
-    towerL.position.set(-4, 5, 0);
-    castleGroup.add(towerL);
-
-    const towerR = new THREE.Mesh(
-      new THREE.BoxGeometry(2, 10, 2),
-      castleMaterial
-    );
-    towerR.position.set(4, 5, 0);
-    castleGroup.add(towerR);
-
-    // Gate Arch posts & cap
-    const gatePostL = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 4.0, 0.5),
-      castleMaterial
-    );
-    gatePostL.position.set(-1.5, 2.0, 0.1);
-    castleGroup.add(gatePostL);
-
-    const gatePostR = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 4.0, 0.5),
-      castleMaterial
-    );
-    gatePostR.position.set(1.5, 2.0, 0.1);
-    castleGroup.add(gatePostR);
-
-    const gateTop = new THREE.Mesh(
-      new THREE.BoxGeometry(3.5, 0.6, 0.5),
-      castleMaterial
-    );
-    gateTop.position.set(0, 4.3, 0.1);
-    castleGroup.add(gateTop);
-
-    // Battlements
-    const battlementSize = 0.5;
-    for (let i = -3; i <= 3; i += 1.5) {
-      const bat = new THREE.Mesh(
-        new THREE.BoxGeometry(battlementSize, battlementSize, battlementSize),
-        castleMaterial
-      );
-      bat.position.set(i, 8.25, -8);
-      castleGroup.add(bat);
-    }
-    // Towers Battlements
-    for (const tx of [-4, 4]) {
-      for (let tz = -0.75; tz <= 0.75; tz += 1.5) {
-        const batL = new THREE.Mesh(
-          new THREE.BoxGeometry(0.4, 0.4, 0.4),
-          castleMaterial
-        );
-        batL.position.set(tx - 0.75, 10.2, tz);
-        castleGroup.add(batL);
-        const batR = new THREE.Mesh(
-          new THREE.BoxGeometry(0.4, 0.4, 0.4),
-          castleMaterial
-        );
-        batR.position.set(tx + 0.75, 10.2, tz);
-        castleGroup.add(batR);
-      }
+    const archGroup = new THREE.Group();
+    scene.add(archGroup);
+    const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.9, flatShading: true });
+    for (let i = 0; i < 6; i++) {
+      const angle = -Math.PI / 2 + (i / 5) * Math.PI;
+      const col = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.2, 0.7), stoneMaterial);
+      col.position.set(Math.sin(angle) * 4.8, 2.1, -Math.cos(angle) * 4.8);
+      col.rotation.y = -angle;
+      archGroup.add(col);
     }
 
-    // Throne Room - Throne
-    const throneGroup = new THREE.Group();
-    throneGroup.position.set(0, 0.05, -7);
-
-    const throneBase = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2, 0.25, 1.2),
-      castleMaterial
-    );
-    throneBase.position.set(0, 0.125, 0);
-    throneGroup.add(throneBase);
-
-    const throneSeat = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 0.6, 0.8),
-      new THREE.MeshLambertMaterial({ color: 0x3d3025, flatShading: true })
-    );
-    throneSeat.position.set(0, 0.55, 0);
-    throneGroup.add(throneSeat);
-
-    const throneBack = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 1.4, 0.18),
-      new THREE.MeshLambertMaterial({ color: 0xf0a868, flatShading: true }) // gold back
-    );
-    throneBack.position.set(0, 1.25, -0.4);
-    throneGroup.add(throneBack);
-
-    castleGroup.add(throneGroup);
-
-    // 5. Build Trees (Act 1 dead trees)
-    const treeCount = isMobile ? 8 : 20;
-    const treesGroup = new THREE.Group();
-    scene.add(treesGroup);
-
-    const treeMaterial = new THREE.MeshLambertMaterial({
-      color: 0x1a1814,
-      flatShading: true,
-      transparent: true,
-    });
-    const trunkMaterial = new THREE.MeshLambertMaterial({
-      color: 0x12100e,
-      flatShading: true,
-      transparent: true,
-    });
-
-    const trunkGeo = new THREE.ConeGeometry(0.3, 2, 4);
-    const canopyGeo = new THREE.ConeGeometry(0.8, 2.5, 5);
-
-    const treesList: THREE.Group[] = [];
-    for (let i = 0; i < treeCount; i++) {
-      const singleTree = new THREE.Group();
-
-      const trunkM = new THREE.Mesh(trunkGeo, trunkMaterial);
-      trunkM.position.set(0, 1, 0);
-      singleTree.add(trunkM);
-
-      const canopyM = new THREE.Mesh(canopyGeo, treeMaterial);
-      canopyM.position.set(0, 2.8, 0);
-      singleTree.add(canopyM);
-
-      // Scatter: Z range 5 to 25. Avoid pathway center (|X| > 2)
-      const side = Math.random() < 0.5 ? -1 : 1;
-      const tx = side * (2 + Math.random() * 8);
-      const tz = 5 + Math.random() * 20;
-      singleTree.position.set(tx, 0, tz);
-
-      // Random scale variation
-      const s = 0.7 + Math.random() * 0.6;
-      singleTree.scale.set(s, s, s);
-
-      treesGroup.add(singleTree);
-      treesList.push(singleTree);
+    const orbitGroup = new THREE.Group();
+    orbitGroup.position.set(0, 1.2, 0);
+    scene.add(orbitGroup);
+    const smallStones: THREE.Mesh[] = [];
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const stone = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.45, 0.18), stoneMaterial);
+      stone.position.set(Math.cos(angle) * 2.0, (Math.random() - 0.5) * 0.3, Math.sin(angle) * 2.0);
+      orbitGroup.add(stone);
+      smallStones.push(stone);
     }
 
-    // 6. Build Particles (Gold sparks around knight)
     const partCount = prefersReducedMotion ? 20 : (isMobile ? 80 : 300);
     const particleGeo = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(partCount * 3);
-
     for (let i = 0; i < partCount; i++) {
-      // uniform random inside sphere of radius 2
-      const u = Math.random();
-      const v = Math.random();
-      const theta = u * 2.0 * Math.PI;
-      const phi = Math.acos(2.0 * v - 1.0);
-      const r = Math.cbrt(Math.random()) * 2;
+      const u = Math.random(), v = Math.random();
+      const theta = u * 2 * Math.PI, phi = Math.acos(2 * v - 1);
+      const r = Math.cbrt(Math.random()) * 2.5;
       particlePositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
       particlePositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       particlePositions[i * 3 + 2] = r * Math.cos(phi);
     }
-    particleGeo.setAttribute(
-      "position",
-      new THREE.BufferAttribute(particlePositions, 3)
-    );
-
-    const particleMaterial = new THREE.PointsMaterial({
-      color: 0xf0a868,
-      size: 0.04,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-    });
-
+    particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+    const particleMaterial = new THREE.PointsMaterial({ color: 0xf0a868, size: 0.04, transparent: true, opacity: 0, blending: THREE.AdditiveBlending });
     const particles = new THREE.Points(particleGeo, particleMaterial);
-    // Draw only half the particles initially to increase them at Coronation
     particleGeo.setDrawRange(0, Math.floor(partCount / 2));
-    knightGroup.add(particles);
+    swordGroup.add(particles);
 
-    // 7. Build Stars
     const starGeo = new THREE.BufferGeometry();
     const starPositions = new Float32Array(300 * 3);
     for (let i = 0; i < 300; i++) {
-      // uniform random inside sphere of radius 50
-      const u = Math.random();
-      const v = Math.random();
-      const theta = u * 2.0 * Math.PI;
-      const phi = Math.acos(2.0 * v - 1.0);
+      const u = Math.random(), v = Math.random();
       const r = Math.cbrt(Math.random()) * 50;
+      const theta = u * 2 * Math.PI, phi = Math.acos(2 * v - 1);
       starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) + 10;
       starPositions[i * 3 + 2] = r * Math.cos(phi);
     }
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-
-    const starMaterial = new THREE.PointsMaterial({
-      color: 0xf5efe8,
-      size: 0.05,
-      transparent: true,
-      opacity: 0,
-    });
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0 });
     const stars = new THREE.Points(starGeo, starMaterial);
-    stars.position.set(0, 0, -25);
     scene.add(stars);
 
-    // 8. Setup Lighting
-    const ambientLight = new THREE.AmbientLight(0x604030, 0.4);
+    const ambientLight = new THREE.AmbientLight(0x503525, 0.3);
     scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xf0a868, 0.8);
-    directionalLight.position.set(5, 10, 5);
+    const directionalLight = new THREE.DirectionalLight(0xf5efe8, 0.6);
+    directionalLight.position.set(5, 15, 10);
     scene.add(directionalLight);
-
-    // Hero PointLight above knight
-    const pointLight = new THREE.PointLight(0xf0a868, 1.0, 8);
+    const pointLight = new THREE.PointLight(0xf0a868, 1.5, 10);
+    pointLight.position.set(0, 2, 0);
     scene.add(pointLight);
 
-    // 9. Build Camera Path
     const cameraPath = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 3, 30), // Act 1: far back
-      new THREE.Vector3(-2, 2, 20), // Act 2: drift left
-      new THREE.Vector3(0, 2, 12), // Act 3: closing
-      new THREE.Vector3(1, 1.5, 5), // Act 4: knight level approach
-      new THREE.Vector3(0, 1.8, 0), // Act 5: close-up pass
-      new THREE.Vector3(0, 2.5, -5), // Act 6: rising view
-      new THREE.Vector3(0, 4, -15), // Act 7: wide shot of castle
-      new THREE.Vector3(0, 2, -25), // Act 7: throne approach
+      new THREE.Vector3(0, 2.0, 9), new THREE.Vector3(-8, 1.6, 6), new THREE.Vector3(-6, 3.2, -6),
+      new THREE.Vector3(0, 2.0, -9), new THREE.Vector3(6, 1.6, -6), new THREE.Vector3(8, 2.8, 6), new THREE.Vector3(0, 1.6, 3.8)
     ]);
 
-    // 10. Update Scene Logic (called on scroll progress)
-    const tempColor = new THREE.Color();
     const updateScene = (progress: number) => {
       if (!sceneRef.current) return;
-
-      // ── Audio updates ──
       audioManager.update(progress);
-
-      // ── Camera positioning ──
-      const cameraPoint = cameraPath.getPoint(progress);
-      // lookAt follows the spline slightly ahead
-      const lookAtPoint = cameraPath.getPoint(Math.min(progress + 0.05, 1.0));
-      camera.position.copy(cameraPoint);
-      camera.lookAt(lookAtPoint);
-
-      // ── Ground color lerping ──
-      const groundColor = tempColor
-        .set(0x1a1410)
-        .lerp(new THREE.Color(0x2a1f12), progress);
-      groundMat.color.copy(groundColor);
-
-      // ── Fog updates (clears by progress 0.5) ──
-      if (scene.fog && scene.fog instanceof THREE.FogExp2) {
-        if (progress <= 0.5) {
-          scene.fog.density = 0.08 * (1.0 - progress / 0.5);
-        } else {
-          scene.fog.density = 0.0;
-        }
-      }
-
-      // ── Sky background color updates ──
-      let currentSkyHex = 0x0e0c0a;
-      if (progress <= 0.33) {
-        const t = progress / 0.33;
-        tempColor.set(0x0e0c0a).lerp(new THREE.Color(0x1a1208), t);
-      } else if (progress <= 0.66) {
-        const t = (progress - 0.33) / 0.33;
-        tempColor.set(0x1a1208).lerp(new THREE.Color(0x2a1a0a), t);
-      } else {
-        const t = (progress - 0.66) / 0.34;
-        tempColor.set(0x2a1a0a).lerp(new THREE.Color(0x0e0c18), t);
-      }
-      scene.background = tempColor;
-
-      // ── Trees opacity (1 -> 0 between 0.2 -> 0.4) ──
-      let treeOpacity = 1.0;
-      if (progress <= 0.2) {
-        treeOpacity = 1.0;
-      } else if (progress <= 0.4) {
-        treeOpacity = 1.0 - (progress - 0.2) / 0.2;
-      } else {
-        treeOpacity = 0.0;
-      }
-      treeMaterial.opacity = treeOpacity;
-      trunkMaterial.opacity = treeOpacity;
-      treesGroup.visible = treeOpacity > 0;
-
-      // ── Castle scale (0.3 -> 1.0 between 0.2 -> 0.9) ──
-      let castleScale = 0.3;
-      if (progress > 0.2 && progress <= 0.9) {
-        const t = (progress - 0.2) / 0.7;
-        castleScale = 0.3 + t * 0.7;
-      } else if (progress > 0.9) {
-        castleScale = 1.0;
-      }
-      castleGroup.scale.set(castleScale, castleScale, castleScale);
-
-      // ── Knight transitions ──
-      // Position Z displacement: moves 0 -> -27 from progress 0.4 -> 0.8
-      let knightZ = 0;
-      if (progress <= 0.4) {
-        knightZ = 0;
-      } else if (progress <= 0.8) {
-        const t = (progress - 0.4) / 0.4;
-        knightZ = t * -27; // lerps to -27
-      } else {
-        knightZ = -27;
-      }
-      knightGroup.position.z = knightZ;
-
-      // Knight scale: 0.8 -> 0.9 (by 0.2) -> 1.0 (by 0.6) -> 1.1 (by 1.0)
-      let knightScale = 0.8;
-      if (progress <= 0.2) {
-        knightScale = 0.8 + (progress / 0.2) * 0.1;
-      } else if (progress <= 0.6) {
-        knightScale = 0.9 + ((progress - 0.2) / 0.4) * 0.1;
-      } else {
-        knightScale = 1.0 + ((progress - 0.6) / 0.4) * 0.1;
-      }
-      knightGroup.scale.set(knightScale, knightScale, knightScale);
-
-      // Body posture rotation.x: 0.3 -> 0.1 (by 0.2) -> 0.0 (by 0.4)
-      let knightRotX = 0;
-      if (progress <= 0.2) {
-        knightRotX = 0.3 - (progress / 0.2) * 0.2;
-      } else if (progress <= 0.4) {
-        knightRotX = 0.1 - ((progress - 0.2) / 0.2) * 0.1;
-      } else {
-        knightRotX = 0;
-      }
-      knightGroup.rotation.x = knightRotX;
-
-      // Color transition
-      if (progress <= 0.2) {
-        const t = progress / 0.2;
-        tempColor.set(0x3a3028).lerp(new THREE.Color(0x5a4a38), t);
-      } else if (progress <= 0.4) {
-        const t = (progress - 0.2) / 0.2;
-        tempColor.set(0x5a4a38).lerp(new THREE.Color(0x7a6a58), t);
-      } else if (progress <= 0.6) {
-        const t = (progress - 0.4) / 0.2;
-        tempColor.set(0x7a6a58).lerp(new THREE.Color(0x8a8070), t);
-      } else if (progress <= 0.8) {
-        const t = (progress - 0.6) / 0.2;
-        tempColor.set(0x8a8070).lerp(new THREE.Color(0xa09080), t);
-      } else {
-        const t = (progress - 0.8) / 0.2;
-        tempColor.set(0xa09080).lerp(new THREE.Color(0xf0a868), t);
-      }
-      knightBodyMaterial.color.copy(tempColor);
-
-      // Arm positions (Victory pose vs Sword stance)
-      let rightArmRotX = 0;
-      let rightArmRotZ = 0;
-      let leftArmRotX = 0;
-      let leftArmRotZ = 0;
-
-      if (progress <= 0.4) {
-        rightArmRotX = 0;
-        rightArmRotZ = 0;
-      } else if (progress <= 0.6) {
-        // Sword raises slightly
-        const t = (progress - 0.4) / 0.2;
-        rightArmRotX = t * -0.5;
-        rightArmRotZ = t * 0.15;
-      } else if (progress <= 0.8) {
-        // Blending into victory pose
-        const t = (progress - 0.6) / 0.2;
-        rightArmRotX = -0.5 + t * -2.2; // -> -2.7
-        rightArmRotZ = 0.15 + t * 1.0;  // -> 1.15
-        leftArmRotX = t * -2.7;
-        leftArmRotZ = t * -1.15;
-      } else {
-        // Coronation Victory
-        rightArmRotX = -2.7;
-        rightArmRotZ = 1.15;
-        leftArmRotX = -2.7;
-        leftArmRotZ = -1.15;
-      }
-
-      // Add walk cycle animation to base rotations (only active when traveling)
-      if (!prefersReducedMotion && progress > 0.05 && progress < 0.78) {
-        // walking animation fades out by 0.78
-        const fade = progress < 0.68 ? 1.0 : (0.78 - progress) / 0.1;
-        const speed = 16;
-        const angle = Math.sin(Date.now() * 0.005 * speed) * 0.4 * fade;
-
-        leftHip.rotation.x = angle;
-        rightHip.rotation.x = -angle;
-
-        // Apply walk bob to limbs
-        leftShoulder.rotation.x = leftArmRotX - angle * 0.5;
-        rightShoulder.rotation.x = rightArmRotX + angle * 0.5;
-        leftShoulder.rotation.z = leftArmRotZ;
-        rightShoulder.rotation.z = rightArmRotZ;
-
-        // Torso bobbing Y height
-        knightGroup.position.y = 0.4 + Math.abs(Math.sin(Date.now() * 0.01 * speed)) * 0.08 * fade;
-      } else {
-        leftHip.rotation.x = 0;
-        rightHip.rotation.x = 0;
-        leftShoulder.rotation.x = leftArmRotX;
-        rightShoulder.rotation.x = rightArmRotX;
-        leftShoulder.rotation.z = leftArmRotZ;
-        rightShoulder.rotation.z = rightArmRotZ;
-        knightGroup.position.y = 0.4;
-      }
-
-      // Cape opacity (lerps 0 -> 1 between 0.4 -> 0.6)
-      if (progress <= 0.4) {
-        capeMaterial.opacity = 0;
-      } else if (progress <= 0.6) {
-        capeMaterial.opacity = (progress - 0.4) / 0.2;
-      } else {
-        capeMaterial.opacity = 1.0;
-      }
-
-      // Crown scale (lerps 0 -> 1 between 0.85 -> 1.0)
-      if (progress <= 0.85) {
-        crownGroup.scale.set(0, 0, 0);
-      } else {
-        const t = (progress - 0.85) / 0.15;
-        crownGroup.scale.set(t, t, t);
-      }
-
-      // Particles sparks opacity (0 -> 1 between 0.6 -> 0.75)
-      if (progress < 0.6) {
-        particleMaterial.opacity = 0;
-      } else if (progress <= 0.75) {
-        particleMaterial.opacity = (progress - 0.6) / 0.15;
-      } else {
-        particleMaterial.opacity = 1.0;
-      }
-
-      // Particle count & scale (at progress >= 0.9)
-      const visibleParticles = progress >= 0.9 ? partCount : Math.floor(partCount / 2);
-      particleGeo.setDrawRange(0, visibleParticles);
-
-      const pScale = progress >= 0.9 ? 2.0 : 1.0;
-      particles.scale.setScalar(pScale);
-
-      // Stars opacity (0 -> 0.8 between 0.75 -> 0.9)
-      if (progress < 0.75) {
-        starMaterial.opacity = 0;
-      } else if (progress <= 0.9) {
-        starMaterial.opacity = ((progress - 0.75) / 0.15) * 0.8;
-      } else {
-        starMaterial.opacity = 0.8;
-      }
-
-      // ── Lighting updates ──
-      const ambColorVal = tempColor
-        .set(0x604030)
-        .lerp(new THREE.Color(0xf0a868), progress);
-      ambientLight.color.copy(ambColorVal);
-      ambientLight.intensity = 0.4 + progress * 0.8;
-      directionalLight.intensity = 0.8 + progress * 1.7;
-
-      pointLight.position.copy(knightGroup.position);
-      pointLight.position.y += 2.0;
-
-      if (prefersReducedMotion) {
-        renderer.render(scene, camera);
-      }
+      camera.position.copy(cameraPath.getPoint(progress));
+      camera.lookAt(new THREE.Vector3(0, 1.4, 0));
+      groundMat.color.set(0x13110f).lerp(new THREE.Color(0x231d17), progress);
+      if (scene.fog instanceof THREE.FogExp2) scene.fog.density = progress <= 0.5 ? 0.08 * (1.0 - progress / 0.5) : 0;
+      
+      if (progress <= 0.33) scene.background = new THREE.Color(0x0a0907).lerp(new THREE.Color(0x130d07), progress / 0.33);
+      else if (progress <= 0.66) scene.background = new THREE.Color(0x130d07).lerp(new THREE.Color(0x1d120a), (progress - 0.33) / 0.33);
+      else scene.background = new THREE.Color(0x1d120a).lerp(new THREE.Color(0x06060c), (progress - 0.66) / 0.34);
+      
+      particleMaterial.opacity = progress < 0.4 ? 0 : progress <= 0.6 ? (progress - 0.4) / 0.2 : 1.0;
+      starMaterial.opacity = progress < 0.75 ? 0 : progress <= 0.9 ? ((progress - 0.75) / 0.15) * 0.8 : 0.8;
+      
+      ambientLight.color.set(0x503525).lerp(new THREE.Color(0xd4af37), progress);
+      ambientLight.intensity = 0.3 + progress * 0.7;
+      directionalLight.intensity = 0.6 + progress * 1.4;
     };
 
-    // Initialize scene state once
     updateScene(0);
     setLoading(false);
 
-    // 11. GSAP ScrollTrigger timeline for text overlays
     const tl = gsap.timeline({
       scrollTrigger: {
         trigger: containerRef.current,
@@ -936,176 +350,144 @@ export default function LandingPage() {
         scrub: 1.5,
         onUpdate: (self) => {
           updateScene(self.progress);
+          if (dragObjRef.current && !dragObjRef.current.isDragging && !dragObjRef.current.isThrowing) {
+            gsap.set("#middleNavRing", { rotation: self.progress * 360, transformOrigin: "center center" });
+          }
         },
       },
     });
 
-    // Fade in/out configs for 7 Acts
-    // Act 1: 0.0 -> 0.15 (peaks at 0.075)
-    tl.fromTo(
-      act1Ref.current,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.075 },
-      0.0
-    ).to(
-      act1Ref.current,
-      { opacity: 0, y: -30, duration: 0.075 },
-      0.075
-    );
+    // Fade text overlays in and out as we scroll
+    tl.to(act1Ref.current, { opacity: 1, y: -20, duration: 0.08, ease: "power1.out" }, 0.0)
+      .to(act1Ref.current, { opacity: 0, y: -40, duration: 0.08, ease: "power1.in" }, 0.12)
+      
+      .to(act2Ref.current, { opacity: 1, x: 20, duration: 0.08, ease: "power1.out" }, 0.16)
+      .to(act2Ref.current, { opacity: 0, x: 40, duration: 0.08, ease: "power1.in" }, 0.28)
+      
+      .to(act3Ref.current, { opacity: 1, x: -20, duration: 0.08, ease: "power1.out" }, 0.32)
+      .to(act3Ref.current, { opacity: 0, x: -40, duration: 0.08, ease: "power1.in" }, 0.44)
+      
+      .to(act4Ref.current, { opacity: 1, y: -20, duration: 0.08, ease: "power1.out" }, 0.48)
+      .to(act4Ref.current, { opacity: 0, y: -40, duration: 0.08, ease: "power1.in" }, 0.60)
+      
+      .to(act5Ref.current, { opacity: 1, x: 20, duration: 0.08, ease: "power1.out" }, 0.64)
+      .to(act5Ref.current, { opacity: 0, x: 40, duration: 0.08, ease: "power1.in" }, 0.74)
+      
+      .to(act6Ref.current, { opacity: 1, x: -20, duration: 0.08, ease: "power1.out" }, 0.78)
+      .to(act6Ref.current, { opacity: 0, x: -40, duration: 0.08, ease: "power1.in" }, 0.86)
+      
+      .to(act7Ref.current, { opacity: 1, y: -20, duration: 0.1, ease: "power1.out" }, 0.90);
 
-    // Act 2: 0.15 -> 0.28 (peaks at 0.215)
-    tl.fromTo(
-      act2Ref.current,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.065 },
-      0.15
-    ).to(
-      act2Ref.current,
-      { opacity: 0, y: -30, duration: 0.065 },
-      0.215
-    );
+    gsap.to("#outerRunicRing", { rotation: -360, repeat: -1, duration: 45, ease: "none", transformOrigin: "center center" });
+    if (typeof window !== "undefined") {
+      dragObjRef.current = Draggable.create("#middleNavRing", {
+        type: "rotation",
+        onDrag: function() {
+          const progress = (this.rotation % 360 + 360) % 360 / 360;
+          window.scrollTo(0, progress * (document.documentElement.scrollHeight - window.innerHeight));
+        }
+      })[0];
+    }
 
-    // Act 3: 0.28 -> 0.42 (peaks at 0.35)
-    tl.fromTo(
-      act3Ref.current,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.07 },
-      0.28
-    ).to(
-      act3Ref.current,
-      { opacity: 0, y: -30, duration: 0.07 },
-      0.35
-    );
-
-    // Act 4: 0.42 -> 0.56 (peaks at 0.49)
-    tl.fromTo(
-      act4Ref.current,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.07 },
-      0.42
-    ).to(
-      act4Ref.current,
-      { opacity: 0, y: -30, duration: 0.07 },
-      0.49
-    );
-
-    // Act 5: 0.56 -> 0.70 (peaks at 0.63)
-    tl.fromTo(
-      act5Ref.current,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.07 },
-      0.56
-    ).to(
-      act5Ref.current,
-      { opacity: 0, y: -30, duration: 0.07 },
-      0.63
-    );
-
-    // Act 6: 0.70 -> 0.85 (peaks at 0.775)
-    tl.fromTo(
-      act6Ref.current,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.075 },
-      0.7
-    ).to(
-      act6Ref.current,
-      { opacity: 0, y: -30, duration: 0.075 },
-      0.775
-    );
-
-    // Act 7: 0.85 -> 1.0 (remains visible)
-    tl.fromTo(
-      act7Ref.current,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.15 },
-      0.85
-    );
-
-    // 12. Render / Animation Loop
-    const clock = new THREE.Clock();
     const render = () => {
       if (redirectingRef.current) return;
-
-      // Slow particle float upwards inside the particle shader buffer
-      const positions = particleGeo.attributes.position.array as Float32Array;
+      swordGroup.rotation.y += 0.003;
+      swordGroup.position.y = 1.2 + Math.sin(Date.now() * 0.001) * 0.08;
+      orbitGroup.rotation.y += 0.004;
+      smallStones.forEach((s, i) => s.position.y = Math.sin(Date.now() * 0.001 + i) * 0.08);
+      
+      const pos = particleGeo.attributes.position.array as Float32Array;
       const progress = tl.scrollTrigger ? tl.scrollTrigger.progress : 0;
-      const driftSpeed = progress >= 1.0 ? 0.005 : 0.002;
-      const radius = progress >= 1.0 ? 4 : 2;
-
+      const radius = progress >= 1.0 ? 4 : 2.5;
       for (let i = 0; i < partCount; i++) {
-        // Drift Y upward
-        positions[i * 3 + 1] += driftSpeed;
-
-        if (positions[i * 3 + 1] > radius) {
-          // Reset to bottom of sphere
-          positions[i * 3 + 1] = -radius;
-          const theta = Math.random() * 2 * Math.PI;
-          const r = Math.random() * radius;
-          positions[i * 3] = r * Math.cos(theta);
-          positions[i * 3 + 2] = r * Math.sin(theta);
+        pos[i * 3 + 1] += (progress >= 1.0 ? 0.005 : 0.002);
+        if (pos[i * 3 + 1] > radius) {
+          pos[i * 3 + 1] = -radius;
+          const t = Math.random() * 2 * Math.PI, r = Math.random() * radius;
+          pos[i * 3] = r * Math.cos(t); pos[i * 3 + 2] = r * Math.sin(t);
         }
       }
       particleGeo.attributes.position.needsUpdate = true;
-
       renderer.render(scene, camera);
       animFrameIdRef.current = requestAnimationFrame(render);
     };
 
-    if (prefersReducedMotion) {
-      renderer.render(scene, camera);
-    } else {
-      render();
-    }
+    if (!prefersReducedMotion) render();
+    else renderer.render(scene, camera);
 
-    // 13. Tab Visibility Handler
-    const handleVisibility = () => {
-      if (prefersReducedMotion) return;
-      if (document.hidden) {
-        if (animFrameIdRef.current) {
-          cancelAnimationFrame(animFrameIdRef.current);
-          animFrameIdRef.current = null;
-        }
-      } else {
-        if (!animFrameIdRef.current && !redirectingRef.current) {
-          animFrameIdRef.current = requestAnimationFrame(render);
-        }
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    // 14. Window Resize Handler
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
-      if (prefersReducedMotion) {
-        renderer.render(scene, camera);
-      }
     };
     window.addEventListener("resize", handleResize);
 
-    // Cleanup
     return () => {
       window.removeEventListener("resize", handleResize);
-      document.removeEventListener("visibilitychange", handleVisibility);
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
-
-      // Kill scrolltriggers
       if (tl.scrollTrigger) tl.scrollTrigger.kill();
-      tl.kill();
-
-      // Dispose audio
+      if (dragObjRef.current) dragObjRef.current.kill();
       audioManager.destroy();
-
-      // Traverse & dispose three assets
-      scene.traverse((node) => {
-        disposeNode(node);
-      });
+      scene.traverse(disposeNode);
       renderer.dispose();
     };
   }, []);
 
-  // Final Action Redirect
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (cursorRef.current) {
+        gsap.to(cursorRef.current, {
+          x: e.clientX - 25,
+          y: e.clientY - 25,
+          duration: 0.1,
+          ease: "power2.out",
+        });
+      }
+      
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const dx = centerX - e.clientX;
+      const dy = centerY - e.clientY;
+      const distance = Math.hypot(dx, dy) || 1;
+      
+      const maxOffset = 5;
+      if (cursorPupilRef.current) {
+        gsap.to(cursorPupilRef.current, {
+          cx: 25 - (dx / distance) * maxOffset,
+          cy: 25 - (dy / distance) * maxOffset,
+          duration: 0.2,
+          ease: "power1.out",
+        });
+      }
+    };
+    
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      const isInteractive = target.closest('[data-cursor="drag"]') || 
+                            target.closest('[data-cursor="click"]') || 
+                            target.closest('button') || 
+                            target.closest('a');
+      
+      if (isInteractive) {
+        gsap.to("#odinEyeGroup", { opacity: 0, duration: 0.2 });
+        gsap.to("#vegvisirGroup", { opacity: 1, duration: 0.2 });
+        gsap.to(cursorRef.current, { scale: 1.3, duration: 0.2 });
+      } else {
+        gsap.to("#odinEyeGroup", { opacity: 1, duration: 0.2 });
+        gsap.to("#vegvisirGroup", { opacity: 0, duration: 0.2 });
+        gsap.to(cursorRef.current, { scale: 1.0, duration: 0.2 });
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseover", handleMouseOver);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseover", handleMouseOver);
+    };
+  }, []);
+
   const beginLegend = () => {
     redirectingRef.current = true;
     if (animFrameIdRef.current) {
@@ -1154,6 +536,56 @@ export default function LandingPage() {
         style={{ background: "#0e0c0a" }}
       />
 
+      {/* ── Concentric Circular Dials (Astrolabe) ── */}
+      <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-10 select-none">
+        <svg
+          id="astrolabeSvg"
+          viewBox="0 0 800 800"
+          className="w-[320px] h-[320px] sm:w-[540px] sm:h-[540px] pointer-events-auto filter drop-shadow-[0_0_35px_rgba(240,168,104,0.15)] transition-all duration-300"
+        >
+          <defs>
+            <path id="outerRingPath" d="M 400, 70 A 330,330 0 1,1 399.9,70 Z" />
+            <path id="middleRingPath" d="M 400, 150 A 250,250 0 1,1 399.9,150 Z" />
+          </defs>
+
+          {/* Outer Ring - Constant rotation */}
+          <g id="outerRunicRing">
+            <circle cx="400" cy="400" r="330" fill="none" stroke="rgba(240,168,104,0.1)" strokeWidth="1" />
+            <text fill="#f5efe8" opacity="0.25" fontSize="13" className="font-mono tracking-[0.3em]">
+              <textPath href="#outerRingPath" startOffset="0%">
+                ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ ✦ ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ ✦
+              </textPath>
+            </text>
+          </g>
+
+          {/* Middle Ring - Interactive navigation dial */}
+          <g id="middleNavRing" cursor="grab" className="pointer-events-auto" data-cursor="drag">
+            <circle cx="400" cy="400" r="250" fill="none" stroke="rgba(240,168,104,0)" strokeWidth="40" />
+            <circle cx="400" cy="400" r="250" fill="none" stroke="rgba(240,168,104,0.2)" strokeWidth="2" strokeDasharray="5, 10" />
+            
+            {/* Circular project/section text */}
+            <text fill="#f5efe8" fontSize="13" className="font-cinzel tracking-[0.2em] font-bold" fillOpacity="0.8">
+              <textPath href="#middleRingPath" startOffset="0%">
+                THE CALL ✦ THE BATTLE ✦ THE OATH ✦ THE SAGE ✦ THE CHRONICLE ✦ THE TREASURY ✦
+              </textPath>
+            </text>
+          </g>
+
+          {/* Inner Ring - Gold core button */}
+          <g id="innerCore" className="cursor-pointer pointer-events-auto" data-cursor="click" onClick={beginLegend}>
+            <circle cx="400" cy="400" r="160" fill="rgba(26,23,20,0.4)" stroke="rgba(240,168,104,0.3)" strokeWidth="1" />
+            <circle cx="400" cy="400" r="145" fill="rgba(240,168,104,0.05)" stroke="rgba(240,168,104,0.5)" strokeWidth="1" strokeDasharray="3, 6" />
+            <circle cx="400" cy="400" r="90" fill="rgba(240,168,104,0.1)" className="transition duration-300 hover:fill-rgba(240,168,104,0.2)" />
+            <text x="400" y="410" textAnchor="middle" fill="#f0a868" className="font-cinzel text-xl font-bold tracking-[0.3em]">
+              ENTER
+            </text>
+            <text x="400" y="428" textAnchor="middle" fill="#f5efe8" opacity="0.4" className="font-mono text-[9px] tracking-[0.2em]">
+              REALM
+            </text>
+          </g>
+        </svg>
+      </div>
+
       {/* ── Scroll Container (Driving ScrollTrigger) ── */}
       <div
         ref={containerRef}
@@ -1170,6 +602,7 @@ export default function LandingPage() {
           </div>
           <button
             onClick={() => router.push("/login")}
+            data-cursor="click"
             className="font-quicksand font-bold text-xs uppercase tracking-widest text-[#f5efe8]/80 hover:text-[#f0a868] transition duration-300 border border-white/5 px-5 py-2.5 rounded-full bg-[#1a1714]/30 backdrop-blur-sm"
           >
             Enter War Room
@@ -1308,6 +741,7 @@ export default function LandingPage() {
             <div className="pointer-events-auto flex flex-col items-center space-y-3">
               <button
                 onClick={beginLegend}
+                data-cursor="click"
                 className="font-quicksand font-bold text-base uppercase tracking-widest text-[#0e0c0a] bg-[#f0a868] px-10 py-5 rounded-full shadow-[0_0_40px_rgba(240,168,104,0.4)] hover:shadow-[0_0_60px_rgba(240,168,104,0.6)] hover:scale-105 transition-all duration-300"
               >
                 Begin Your Legend →
@@ -1332,6 +766,7 @@ export default function LandingPage() {
       {/* ── Audio Control (Top-Right Fixed) ── */}
       <button
         onClick={toggleMute}
+        data-cursor="click"
         className="fixed top-24 right-8 z-30 pointer-events-auto p-3 rounded-full border border-white/5 bg-[#1a1714]/30 backdrop-blur-sm text-[#f5efe8]/75 hover:text-[#f0a868] transition duration-300"
         title={isMuted ? "Unmute Ambient Audio" : "Mute Audio"}
       >
@@ -1404,6 +839,47 @@ export default function LandingPage() {
           </div>
         </div>
       )}
+
+      {/* ── Custom Odin's Eye Cursor ── */}
+      <div
+        ref={cursorRef}
+        className="fixed top-0 left-0 w-[50px] h-[50px] pointer-events-none z-50 transition-all duration-300 ease-out cursor-follower hidden md:block"
+        style={{ transform: "translate3d(-100px, -100px, 0)" }}
+      >
+        {/* Cursor SVG Container */}
+        <svg viewBox="0 0 50 50" className="w-full h-full">
+          {/* Odin's Eye (Standard State) */}
+          <g id="odinEyeGroup" className="transition-opacity duration-300 opacity-100 cursor-eye-element">
+            {/* Runic Border */}
+            <circle cx="25" cy="25" r="22" fill="none" stroke="rgba(240,168,104,0.3)" strokeWidth="1" />
+            {/* Eye Shape */}
+            <path
+              d="M 12,25 C 18,15 32,15 38,25 C 32,35 18,35 12,25 Z"
+              fill="none"
+              stroke="#f0a868"
+              strokeWidth="1.5"
+            />
+            {/* Pupil */}
+            <circle ref={cursorPupilRef} cx="25" cy="25" r="4.5" fill="#f5efe8" />
+          </g>
+
+          {/* Vegvisir Compass (Hover / Drag State) */}
+          <g id="vegvisirGroup" className="transition-opacity duration-300 opacity-0 cursor-compass-element" stroke="#f0a868" strokeWidth="1.2" fill="none">
+            {/* Circular Compass Grid */}
+            <circle cx="25" cy="25" r="22" stroke="rgba(240,168,104,0.2)" strokeWidth="0.5" strokeDasharray="2, 2" />
+            <circle cx="25" cy="25" r="12" stroke="rgba(240,168,104,0.1)" strokeWidth="0.5" />
+            
+            {/* Compass Lines */}
+            <line x1="25" y1="3" x2="25" y2="47" stroke="#f0a868" />
+            <line x1="3" y1="25" x2="47" y2="25" stroke="#f0a868" />
+            <line x1="9" y1="9" x2="41" y2="41" stroke="#f0a868" />
+            <line x1="41" y1="9" x2="9" y2="41" stroke="#f0a868" />
+            
+            {/* Center Runic Node */}
+            <circle cx="25" cy="25" r="2.5" fill="#f0a868" />
+          </g>
+        </svg>
+      </div>
 
     </div>
   );
