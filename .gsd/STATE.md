@@ -7,17 +7,18 @@ updated: 2026-06-16T12:45:00Z
 ## Current Position
 
 **Milestone:** focura-rebuild
-**Phase:** 6 - Performance & Production Audit
-**Status:** completed
-**Plan:** none
+**Phase:** 7 - Viking Runic Astrolabe Landing Page
+**Status:** planning
+**Plan:** Plan 7.1 - Rebuild landing page UI with SVG concentric rotating dials, floating glowing 3D sword, and Odin's Eye follower cursor
 
 ## Last Action
 
-Completed all optimizations for Phase 6, verified TypeScript compiler output and Next.js production build success.
+Finished Phase 6 (Performance & Production Audit) and received user request to build an experimental circular Norse astrolabe dial page (rebuilding the landing page).
 
 ## Next Steps
 
-1. Milestone complete. Ready to hand over to user or archive.
+1. Create Phase 7 directory and 1-PLAN.md containing detailed tasks for the circular Norse astrolabe dial landing page, ThreeJS sword asset, and Odin's Eye tracking cursor.
+2. Wait for user approval on implementation plan, then run execution.
 
 ## Active Decisions
 

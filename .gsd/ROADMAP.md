@@ -98,6 +98,16 @@ updated: 2026-06-16T12:45:00Z
 
 ---
 
+### Phase 7: Viking Runic Astrolabe Landing Page
+**Status:** 🔄 In Progress
+**Objective:** Rebuild the landing page as an interactive Norse astrolabe dial using SVG concentric rings, 3D WebGL glowing sword, and Odin's Eye follower cursor.
+**Depends on:** Phase 6
+
+**Plans:**
+- [ ] Plan 7.1: Rebuild landing page UI with SVG concentric rotating dials, floating glowing 3D sword, and Odin's Eye follower cursor.
+
+---
+
 ## Progress Summary
 
 | Phase | Status | Plans | Complete |
@@ -108,6 +118,7 @@ updated: 2026-06-16T12:45:00Z
 | 4     | ✅     | 3/3   | 2026-06-17 |
 | 5     | ✅     | 6/6   | 2026-06-17 |
 | 6     | ✅     | 1/1   | 2026-06-17 |
+| 7     | 🔄     | 0/1   | —        |
 
 ---
 
@@ -121,3 +132,4 @@ updated: 2026-06-16T12:45:00Z
 | 4     | 2026-06-17 | 2026-06-17 | <1d     |
 | 5     | 2026-06-17 | 2026-06-17 | <1d     |
 | 6     | 2026-06-17 | 2026-06-17 | <1h     |
+| 7     | 2026-06-17 | —         | —        |
