@@ -175,27 +175,40 @@ export default function LandingPage() {
 
     const video = videoRef.current;
     let scrollTriggerInstance: any = null;
+    let initialized = false;
 
     const initScrubber = () => {
+      if (initialized) return;
+      initialized = true;
       setLoading(false);
       
-      // Video scrubber tween
-      const tween = gsap.fromTo(video, 
-        { currentTime: 0 },
-        {
-          currentTime: 42,
-          ease: "none",
-          scrollTrigger: {
-            trigger: containerRef.current,
-            start: "top top",
-            end: "bottom bottom",
-            scrub: 1.2,
-            onUpdate: (self) => {
-              audioManager.update(self.progress);
-            }
+      if (video) {
+        video.pause();
+        video.currentTime = 0;
+      }
+      
+      const scrollObj = { currentTime: 0 };
+      const totalDuration = video && video.duration && !isNaN(video.duration) ? video.duration : 42;
+      
+      // Video scrubber tween using proxy object for maximum browser compatibility
+      const tween = gsap.to(scrollObj, {
+        currentTime: totalDuration,
+        ease: "none",
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 1.2,
+          onUpdate: (self) => {
+            audioManager.update(self.progress);
+          }
+        },
+        onUpdate: () => {
+          if (video) {
+            video.currentTime = scrollObj.currentTime;
           }
         }
-      );
+      });
       scrollTriggerInstance = tween.scrollTrigger;
 
       // Chapter 1 Animations (0% to 16.66%)
@@ -277,15 +290,21 @@ export default function LandingPage() {
       .fromTo(c6Ref.current, { opacity: 0, y: 50, scale: 0.98 }, { opacity: 1, y: 0, scale: 1, duration: 0.5 });
     };
 
+    let fallbackTimer: any = null;
     if (video) {
       if (video.readyState >= 1) {
         initScrubber();
       } else {
         video.addEventListener("loadedmetadata", initScrubber);
+        fallbackTimer = setTimeout(() => {
+          initScrubber();
+        }, 1500);
       }
     }
 
     return () => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      if (video) video.removeEventListener("loadedmetadata", initScrubber);
       if (scrollTriggerInstance) {
         scrollTriggerInstance.kill();
       }
