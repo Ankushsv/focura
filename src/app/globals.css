@@ -1376,7 +1376,23 @@ body {
   }
 }
 
-/* ── Custom Odin's Eye Cursor & Astrolabe Dial Animations ── */
+/* ── Premium Cinematic Overlays ── */
+.bg-film-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+.bg-radial-vignette {
+  background: radial-gradient(circle, transparent 20%, rgba(14, 12, 10, 0.75) 100%);
+}
+
+.cinematic-glow {
+  filter: drop-shadow(0 0 20px rgba(240, 168, 104, 0.12));
+}
+
+.text-mask-reveal {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
 .cursor-follower {
   transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
