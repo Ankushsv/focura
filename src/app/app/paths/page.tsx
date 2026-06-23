@@ -22,11 +22,11 @@ const CATEGORIES: MasteryPath["category"][] = [
 ];
 
 const CATEGORY_LABELS = {
-  coding: "Artificer Arts",
-  fitness: "Marshal Training",
-  learning: "Scholar Studies",
-  creative: "Bardic Crafts",
-  other: "Field Deeds",
+  coding: "Coding & Tech",
+  fitness: "Fitness & Health",
+  learning: "Academic & Studies",
+  creative: "Creative & Design",
+  other: "Daily & Productive",
 };
 
 export default function PathsPage() {
@@ -40,8 +40,8 @@ export default function PathsPage() {
   const [unlocking, setUnlocking] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
-  const [name, setName] = useState("knight");
-
+  const [name, setName] = useState("User");
+  
   useEffect(() => {
     async function loadProfileName() {
       try {
@@ -55,7 +55,7 @@ export default function PathsPage() {
             .eq("id", user.id)
             .single();
           if (profile) {
-            setName(profile.username || profile.name || user.email?.split("@")[0] || "knight");
+            setName(profile.username || profile.name || user.email?.split("@")[0] || "User");
           }
         }
       } catch {}
@@ -63,15 +63,15 @@ export default function PathsPage() {
     loadProfileName();
   }, []);
 
-  const activePaths = paths.filter((p) => p.nodes.some((n) => n.status !== "done"));
-  const completedPaths = paths.filter((p) => p.nodes.every((n) => n.status === "done"));
+  const activePaths = (paths || []).filter((p) => (p.nodes || []).some((n) => n.status !== "done"));
+  const completedPaths = (paths || []).filter((p) => (p.nodes || []).every((n) => n.status === "done"));
   const displayedPaths = activeTab === "active" ? activePaths : completedPaths;
 
   async function handleAddPath(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || creating) return;
     setCreating(true);
-    bus.emit("pet:react", { message: "Consulting maps... designing your skill tree... 🗺️" });
+    bus.emit("pet:react", { message: "Designing your mastery path... 🗺️" });
     await addPath({ title: title.trim(), goal: goal.trim(), category });
     setTitle("");
     setGoal("");
@@ -90,19 +90,20 @@ export default function PathsPage() {
         fireConfetti();
         
         // Check if the path is now fully completed
-        const path = paths.find((p) => p.id === pathId);
+        const path = (paths || []).find((p) => p.id === pathId);
         if (path) {
-          const doneCount = path.nodes.filter((n) => n.status === "done" || n.id === nodeId).length;
-          const isFullyDone = doneCount === path.nodes.length;
+          const nodesList = path.nodes || [];
+          const doneCount = nodesList.filter((n) => n.status === "done" || n.id === nodeId).length;
+          const isFullyDone = doneCount === nodesList.length;
           
           if (isFullyDone) {
             bus.emit("pet:react", { 
-              message: `🏆 QUEST COMPLETE! You have fully mastered "${path.title}"!` 
+              message: `🏆 PATH COMPLETED! You have fully mastered "${path.title}"!` 
             });
             setTimeout(() => fireConfetti(), 400);
             setTimeout(() => fireConfetti(), 800);
           } else {
-            bus.emit("pet:react", { message: "Your title rises. Legend Points earned! 🌳" });
+            bus.emit("pet:react", { message: "Milestone unlocked! XP earned! 🌳" });
           }
         }
       }
@@ -112,46 +113,46 @@ export default function PathsPage() {
 
   if (!loaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0e0c0a]">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#f0a868]/30 border-t-[#f0a868]" />
+      <div className="flex min-h-screen items-center justify-center bg-warm-bg">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-warm-amber/30 border-t-warm-amber" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0e0c0a] px-4 py-6 sm:px-8 space-y-8">
+    <div className="min-h-screen bg-warm-bg px-4 py-6 sm:px-8 space-y-8">
       {/* ── Map / Compass Hero ── */}
-      <div className="relative mx-auto max-w-5xl">
-        <div className="relative overflow-hidden rounded-2xl border border-realm-border bg-[#1a1714] px-8 py-10 shadow-2xl">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-realm-gold/5 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-realm-purple/5 blur-3xl" />
+      <div className="relative mx-auto max-w-[1400px]">
+        <div className="relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface px-8 py-10 shadow-2xl">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-warm-amber/5 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-warm-purple/5 blur-3xl" />
 
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-5">
               <div className="relative flex-shrink-0">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-realm-border bg-[#141210] text-4xl shadow-lg">
-                  <IconMap className="h-10 w-10 text-realm-gold" />
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-warm-border bg-warm-surface2 text-4xl shadow-lg">
+                  <IconMap className="h-10 w-10 text-warm-amber" />
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#f0a868]">
+                <div className="text-[10px] font-quick font-bold uppercase tracking-widest text-warm-amber">
                   THE PATH OF MASTERY
                 </div>
-                <h1 className="font-cinzel text-xl sm:text-3xl font-bold text-[#f5efe8]">
-                  The Great Quests
+                <h1 className="font-space text-xl sm:text-3xl font-bold text-warm-text">
+                  Mastery Paths
                 </h1>
-                <p className="font-lora italic text-xs sm:text-sm text-realm-muted">
+                <p className="font-quick italic text-xs sm:text-sm text-warm-textMuted">
                   &ldquo;These are the journeys that will define you. Not in days — in years.&rdquo;
                 </p>
-                {paths.length > 0 && (
-                  <div className="mt-4 flex gap-4 text-xs font-quick text-realm-muted">
+                {(paths || []).length > 0 && (
+                  <div className="mt-4 flex gap-4 text-xs font-quick text-warm-textMuted">
                     <div>
-                      <span className="text-sm font-mono font-bold text-[#f5efe8]">{paths.length}</span> active quest scrolls
+                      <span className="text-sm font-mono font-bold text-warm-text">{(paths || []).length}</span> active mastery paths
                     </div>
                     <div>
-                      <span className="text-sm font-mono font-bold text-realm-gold">
-                        {paths.reduce((acc, p) => acc + p.nodes.filter((n) => n.status === "done").length, 0)}
-                      </span> milestones reached
+                      <span className="text-sm font-mono font-bold text-warm-amber">
+                        {(paths || []).reduce((acc, p) => acc + (p.nodes || []).filter((n) => n.status === "done").length, 0)}
+                      </span> milestones completed
                     </div>
                   </div>
                 )}
@@ -160,51 +161,51 @@ export default function PathsPage() {
 
             <button
               onClick={() => setShowForm((v) => !v)}
-              className="rounded-full bg-realm-gold text-[#0e0c0a] px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.3)] transition"
+              className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
             >
-              {showForm ? "✕ Cancel" : "+ Begin a Quest"}
+              {showForm ? "✕ Cancel" : "+ Start a Mastery Path"}
             </button>
           </div>
         </div>
 
         {/* ── New Path Form ── */}
         {showForm && (
-          <div className="mt-5 overflow-hidden rounded-2xl border border-realm-border bg-realm-surface shadow-xl border-l-4 border-l-realm-gold">
-            <div className="border-b border-realm-border bg-[#141210] px-6 py-4">
-              <h2 className="flex items-center gap-2 text-sm font-quick font-bold text-[#f5efe8] uppercase tracking-wider">
-                <IconMap className="h-4 w-4 text-realm-gold" /> Begin a New Great Quest
+          <div className="mt-5 overflow-hidden rounded-2xl border border-warm-border bg-warm-surface shadow-xl border-l-4 border-l-warm-amber">
+            <div className="border-b border-warm-border bg-warm-surface2 px-6 py-4">
+              <h2 className="flex items-center gap-2 text-sm font-quick font-bold text-warm-text uppercase tracking-wider">
+                <IconMap className="h-4 w-4 text-warm-amber" /> Start a New Mastery Path
               </h2>
             </div>
             <form onSubmit={handleAddPath} className="space-y-5 p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
-                    Quest Title
+                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
+                    Path Title
                   </label>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Master the Blade of Rust (System Programming)"
+                    placeholder="e.g. Master the Rust Programming Language"
                     required
-                    className="w-full rounded-xl border border-realm-border bg-realm-surface2 px-4 py-2.5 text-sm font-quick text-realm-text placeholder-realm-muted/50 outline-none focus:border-realm-gold transition"
+                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-amber transition"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
+                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
                     Summit Vision (End Goal)
                   </label>
                   <input
                     value={goal}
                     onChange={(e) => setGoal(e.target.value)}
-                    placeholder="e.g. Forge a full operating layout"
-                    className="w-full rounded-xl border border-realm-border bg-realm-surface2 px-4 py-2.5 text-sm font-quick text-realm-text placeholder-realm-muted/50 outline-none focus:border-realm-gold transition"
+                    placeholder="e.g. Forge a full operating system"
+                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-amber transition"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
-                  The Bardic discipline
+                <label className="mb-2 block text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
+                  Discipline Category
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map((cat) => (
@@ -214,8 +215,8 @@ export default function PathsPage() {
                       onClick={() => setCategory(cat)}
                       className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-quick font-bold transition duration-200 ${
                         category === cat
-                          ? "border-realm-gold bg-realm-gold-dim text-realm-gold shadow"
-                          : "border-realm-border bg-realm-surface2 text-realm-muted hover:text-realm-text"
+                          ? "border-warm-amber bg-warm-amber/15 text-warm-amber shadow"
+                          : "border-warm-border bg-warm-surface2 text-warm-textMuted hover:text-warm-text"
                       }`}
                     >
                       <span>{CATEGORY_ICONS[cat]}</span>
@@ -229,15 +230,15 @@ export default function PathsPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="rounded-full bg-realm-gold text-[#0e0c0a] px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.3)] transition"
+                  className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
                 >
-                  {creating ? "Mapping quest..." : "Swear This Quest ⚔️"}
+                  {creating ? "Mapping path..." : "Start This Path 🚀"}
                 </button>
                 <button
                   type="button"
                   disabled={creating}
                   onClick={() => setShowForm(false)}
-                  className="rounded-full bg-realm-surface2 border border-realm-border text-realm-muted px-6 py-2.5 text-xs font-quick font-bold hover:text-realm-text hover:bg-realm-surface transition"
+                  className="rounded-full bg-warm-surface2 border border-warm-border text-warm-textMuted px-6 py-2.5 text-xs font-quick font-bold hover:text-warm-text hover:bg-warm-surface transition"
                 >
                   Cancel
                 </button>
@@ -248,83 +249,83 @@ export default function PathsPage() {
       </div>
 
       {/* ── Empty State ── */}
-      {paths.length === 0 && !showForm && (
-        <div className="mx-auto max-w-5xl">
-          <div className="flex flex-col items-center gap-6 rounded-2xl border border-realm-gold/30 border-dashed bg-realm-surface px-8 py-20 text-center shadow">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-realm-gold/30 bg-[#141210]">
-              <IconMap className="h-8 w-8 text-realm-gold" />
+      {(paths || []).length === 0 && !showForm && (
+        <div className="mx-auto max-w-[1400px]">
+          <div className="flex flex-col items-center gap-6 rounded-2xl border border-warm-amber/30 border-dashed bg-warm-surface px-8 py-20 text-center shadow">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-warm-amber/30 bg-warm-surface2">
+              <IconMap className="h-8 w-8 text-warm-amber" />
             </div>
             <div className="space-y-1">
-              <h2 className="font-cinzel text-lg font-bold text-realm-text">Begin a New Great Quest</h2>
-              <p className="font-lora italic text-xs text-realm-muted max-w-sm mx-auto">
-                Every legend starts with a single step. sworn on this board, your path of mastery begins.
+              <h2 className="font-space text-lg font-bold text-warm-text">Begin a New Mastery Path</h2>
+              <p className="font-quick italic text-xs text-warm-textMuted max-w-sm mx-auto">
+                Every journey starts with a single step. Define your path, and begin your mastery journey today.
               </p>
             </div>
             <button
               onClick={() => setShowForm(true)}
-              className="rounded-full bg-realm-gold text-[#0e0c0a] px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.3)] transition"
+              className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
             >
-              Begin a Great Quest
+              Begin a Mastery Path
             </button>
           </div>
         </div>
       )}
 
       {/* ── Tabs Switcher ── */}
-      {paths.length > 0 && (
-        <div className="mx-auto mb-6 flex max-w-5xl gap-2 border-b border-realm-border pb-4">
+      {(paths || []).length > 0 && (
+        <div className="mx-auto mb-6 flex max-w-[1400px] gap-2 border-b border-warm-border pb-4">
           <button
             onClick={() => setActiveTab("active")}
             className={`rounded-full px-5 py-2 text-xs font-quick font-bold transition duration-200 ${
               activeTab === "active"
-                ? "bg-realm-gold-dim text-realm-gold border border-realm-gold/25"
-                : "text-realm-muted hover:text-realm-text"
+                ? "bg-warm-amber/10 text-warm-amber border border-warm-amber/20"
+                : "text-warm-textMuted hover:text-warm-text"
             }`}
           >
-            Active Quests ({activePaths.length})
+            Active Paths ({activePaths.length})
           </button>
           <button
             onClick={() => setActiveTab("completed")}
             className={`rounded-full px-5 py-2 text-xs font-quick font-bold transition duration-200 ${
               activeTab === "completed"
-                ? "bg-realm-teal/10 text-realm-teal border border-realm-teal/20"
-                : "text-realm-muted hover:text-realm-text"
+                ? "bg-warm-teal/10 text-warm-teal border border-warm-teal/20"
+                : "text-warm-textMuted hover:text-warm-text"
             }`}
           >
-            Conquered ({completedPaths.length})
+            Completed ({completedPaths.length})
           </button>
         </div>
       )}
 
-      {/* ── Paths List (Quest Scrolls) ── */}
-      {paths.length > 0 && (
-        <div className="relative mx-auto max-w-5xl space-y-8">
+      {/* ── Paths List ── */}
+      {(paths || []).length > 0 && (
+        <div className="relative mx-auto max-w-[1400px] space-y-8">
           {displayedPaths.length === 0 ? (
-            <div className="rounded-2xl border border-realm-border bg-realm-surface p-12 text-center text-realm-muted font-quick">
+            <div className="rounded-2xl border border-warm-border bg-warm-surface p-12 text-center text-warm-textMuted font-quick">
               {activeTab === "active"
-                ? "All quests completed! Re-evaluate your scrolls or swearing a new great quest."
-                : "Your Chronicle has no mastered quests yet. Conquering skills will write your history."}
+                ? "All paths completed! Select a new mastery path to begin."
+                : "Your history has no mastered paths yet. Conquering milestones will build your stats."}
             </div>
           ) : (
             displayedPaths.map((path) => {
-              const done = path.nodes.filter((n) => n.status === "done").length;
-              const total = path.nodes.length;
+              const nodesList = path.nodes || [];
+              const done = nodesList.filter((n) => n.status === "done").length;
+              const total = nodesList.length;
               const pct = total > 0 ? (done / total) * 100 : 0;
-              const color = CATEGORY_COLORS[path.category];
 
               // Rank mappings:
-              // 0% -> Commoner, 25% -> Squire, 50% -> Knight, 75% -> Champion, 100% -> Legend
+              // 0-24%: Novice, 25-49%: Apprentice, 50-74%: Practitioner, 75-99%: Specialist, 100%: Master
               const currentRank = 
-                pct === 100 ? "Legend" : 
-                pct >= 75 ? "Champion" :
-                pct >= 50 ? "Knight" :
-                pct >= 25 ? "Squire" :
-                "Commoner";
+                pct === 100 ? "Master" : 
+                pct >= 75 ? "Specialist" :
+                pct >= 50 ? "Practitioner" :
+                pct >= 25 ? "Apprentice" :
+                "Novice";
 
               return (
                 <div
                   key={path.id}
-                  className="group overflow-hidden rounded-2xl border border-realm-border bg-realm-surface p-6 shadow transition hover:shadow-lg"
+                  className="group overflow-hidden rounded-2xl border border-warm-border bg-warm-surface p-6 shadow transition hover:shadow-lg"
                 >
                   {/* Card Header */}
                   <div className="flex items-start justify-between gap-4 pb-4">
@@ -340,31 +341,31 @@ export default function PathsPage() {
                       </div>
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-base font-quick font-bold text-[#f5efe8]">{path.title}</h2>
+                          <h2 className="text-base font-quick font-bold text-warm-text">{path.title}</h2>
                           <span
-                            className="rounded-full border border-realm-gold/20 bg-realm-gold-dim px-2.5 py-0.5 text-[9px] font-quick font-bold text-realm-gold uppercase tracking-wider"
+                            className="rounded-full border border-warm-amber/20 bg-warm-amber/10 px-2.5 py-0.5 text-[9px] font-quick font-bold text-warm-amber uppercase tracking-wider"
                           >
                             {CATEGORY_LABELS[path.category]}
                           </span>
-                          <span className="rounded-full border border-realm-border bg-realm-surface2 px-2.5 py-0.5 font-mono text-[10px] text-realm-muted">
+                          <span className="rounded-full border border-warm-border bg-warm-surface2 px-2.5 py-0.5 font-mono text-[10px] text-warm-textMuted">
                             {done}/{total} milestones
                           </span>
                         </div>
                         {path.goal && (
-                          <p className="mt-1 text-xs font-lora italic text-realm-muted">🎯 Vision: {path.goal}</p>
+                          <p className="mt-1 text-xs font-quick italic text-warm-textMuted">🎯 Vision: {path.goal}</p>
                         )}
                       </div>
                     </div>
                     
                     {/* Rank Badge */}
                     <div className="flex items-center gap-3">
-                      <span className="rounded border border-realm-gold px-2.5 py-1 font-cinzel text-[10px] font-bold text-realm-gold bg-realm-gold-dim uppercase tracking-wider">
+                      <span className="rounded border border-warm-amber px-2.5 py-1 font-space text-[10px] font-bold text-warm-amber bg-warm-amber/10 uppercase tracking-wider">
                         {currentRank}
                       </span>
                       <button
                         onClick={() => deletePath(path.id)}
-                        className="rounded-lg p-1.5 text-realm-muted opacity-0 hover:bg-realm-surface2 hover:text-realm-crimson group-hover:opacity-100 transition"
-                        title="Abandon quest"
+                        className="rounded-lg p-1.5 text-warm-textMuted opacity-0 hover:bg-warm-surface2 hover:text-priority-critical group-hover:opacity-100 transition"
+                        title="Abandon path"
                       >
                         ✕
                       </button>
@@ -372,24 +373,24 @@ export default function PathsPage() {
                   </div>
 
                   {/* Mountain visual & Progress bar */}
-                  <div className="py-4 grid grid-cols-1 md:grid-cols-[1fr_200px] gap-6 items-center border-t border-realm-border/50">
+                  <div className="py-4 grid grid-cols-1 md:grid-cols-[1fr_200px] gap-6 items-center border-t border-warm-border/50">
                     <div className="space-y-2">
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-realm-surface2 border border-realm-border">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-warm-surface2 border border-warm-border">
                         <div
-                          className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-realm-gold to-realm-gold/70"
+                          className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-warm-amber to-warm-amber/70"
                           style={{
                             width: `${pct}%`,
                           }}
                         />
                       </div>
-                      <div className="flex justify-between font-mono text-[10px] text-realm-muted">
-                        <span>{Math.round(pct)}% of Quest conquered</span>
+                      <div className="flex justify-between font-mono text-[10px] text-warm-textMuted">
+                        <span>{Math.round(pct)}% of Path completed</span>
                         <span>{total - done} steps to summit</span>
                       </div>
                     </div>
 
                     {/* SVG Mountain visualization */}
-                    <div className="flex items-center justify-center bg-[#151310] border border-realm-border rounded-xl p-3 h-20 relative overflow-hidden">
+                    <div className="flex items-center justify-center bg-warm-surface2 border border-warm-border rounded-xl p-3 h-20 relative overflow-hidden">
                       <svg className="absolute inset-0 h-full w-full opacity-25" viewBox="0 0 100 40" preserveAspectRatio="none">
                         <polygon points="0,40 50,5 100,40" fill="url(#goldGrad)" />
                         <defs>
@@ -400,9 +401,9 @@ export default function PathsPage() {
                         </defs>
                       </svg>
                       {/* Summit Flag */}
-                      <span className="absolute top-1 text-sm select-none" style={{ left: "calc(50% - 7px)" }}>🏴</span>
+                      <span className="absolute top-1 text-sm select-none" style={{ left: "calc(50% - 7px)" }}>🏁</span>
                       
-                      {/* Climber (Knight chess character) climbing mountain based on percentage */}
+                      {/* Climber climber emoji climbing mountain based on percentage */}
                       <span 
                         className="absolute text-sm select-none transition-all duration-1000"
                         style={{
@@ -411,21 +412,21 @@ export default function PathsPage() {
                           transform: "translateX(-50%)",
                         }}
                       >
-                        ♞
+                        🧗
                       </span>
-                      <span className="text-[10px] font-quick font-bold text-realm-gold uppercase tracking-wider relative z-10">
+                      <span className="text-[10px] font-quick font-bold text-warm-amber uppercase tracking-wider relative z-10">
                         THE CLIMB
                       </span>
                     </div>
                   </div>
 
                   {/* Skill Tree / Path of Mastery */}
-                  <div className="border-t border-realm-border/50 pt-5">
-                    <h3 className="text-xs font-quick font-bold uppercase tracking-widest text-realm-muted mb-4">
+                  <div className="border-t border-warm-border/50 pt-5">
+                    <h3 className="text-xs font-quick font-bold uppercase tracking-widest text-warm-textMuted mb-4">
                       The Path of Mastery
                     </h3>
                     <div className="mx-auto max-w-md">
-                      {path.nodes.map((node, idx) => {
+                      {(path.nodes || []).map((node, idx) => {
                         const isDone = node.status === "done";
                         const isAvail = node.status === "available";
                         const isLocked = node.status === "locked";
@@ -437,7 +438,7 @@ export default function PathsPage() {
                               <div className="relative flex-shrink-0 z-10">
                                 {isDone && (
                                   <div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold bg-realm-gold text-[#0e0c0a] shadow-lg shadow-realm-gold/15"
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold bg-warm-amber text-warm-bg shadow-lg shadow-warm-amber/15"
                                   >
                                     ✓
                                   </div>
@@ -446,14 +447,14 @@ export default function PathsPage() {
                                   <button
                                     onClick={() => handleUnlock(path.id, node.id)}
                                     disabled={unlocking === node.id}
-                                    className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-realm-gold bg-[#141210] animate-pulse"
+                                    className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-warm-amber bg-warm-surface2 animate-pulse"
                                     title="Unlock milestone"
                                   >
-                                    <span className="h-2 w-2 rounded-full bg-realm-gold" />
+                                    <span className="h-2 w-2 rounded-full bg-warm-amber" />
                                   </button>
                                 )}
                                 {isLocked && (
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-realm-border bg-realm-surface2 text-xs text-realm-muted">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-warm-border bg-warm-surface2 text-xs text-warm-textMuted">
                                     <IconLock className="h-3.5 w-3.5" />
                                   </div>
                                 )}
@@ -463,34 +464,34 @@ export default function PathsPage() {
                               <div className="flex-1">
                                 <h4
                                   className={`font-quick font-bold text-sm ${
-                                    isLocked ? "text-realm-muted" : "text-[#f5efe8]"
+                                    isLocked ? "text-warm-textMuted" : "text-warm-text"
                                   }`}
                                 >
                                   {node.label}
                                 </h4>
-                                <p className="text-xs font-quick text-realm-muted mt-0.5">{node.description}</p>
+                                <p className="text-xs font-quick text-warm-textMuted mt-0.5">{node.description}</p>
                               </div>
 
-                              {/* LP value */}
+                              {/* XP value */}
                               <div className="text-right shrink-0">
                                 <span
                                   className={`font-mono text-xs font-bold ${
-                                    isLocked ? "text-realm-hint" : "text-realm-gold"
+                                    isLocked ? "text-warm-textHint" : "text-warm-amber"
                                   }`}
                                 >
-                                  +{node.xp} LP
+                                  +{node.xp} XP
                                 </span>
                               </div>
                             </div>
 
                             {/* Connecting Line */}
-                            {idx < path.nodes.length - 1 && (
+                            {idx < (path.nodes || []).length - 1 && (
                               <div className="flex pl-[15px] my-1">
                                 <div
                                   className="w-0.5 h-8 transition-colors duration-500"
                                   style={{
-                                    backgroundColor: isDone ? "#f0a868" : "rgba(255,245,235,0.07)",
-                                    boxShadow: isDone ? "0 0 8px #f0a868" : "none",
+                                    backgroundColor: isDone ? "var(--color-warm-amber)" : "var(--color-warm-border)",
+                                    boxShadow: isDone ? "0 0 8px var(--color-warm-amber)" : "none",
                                   }}
                                 />
                               </div>
@@ -501,18 +502,18 @@ export default function PathsPage() {
                     </div>
                   </div>
 
-                  {/* The Sage speaks (Roadmap insight block) */}
-                  <div className="mt-6 border-t border-realm-border/50 pt-5">
-                    <div className="bg-[#191512] border-l-3 border-[#a78bfa] rounded-r-xl p-4 flex gap-3.5">
-                      <div className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-[#a78bfa]/10 text-[#a78bfa]">
+                  {/* AI Coach reflects (Roadmap insight block) */}
+                  <div className="mt-6 border-t border-warm-border/50 pt-5">
+                    <div className="bg-warm-surface2 border-l-4 border-warm-purple rounded-r-xl p-4 flex gap-3.5">
+                      <div className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-warm-purple/10 text-warm-purple">
                         <IconWand className="h-4 w-4" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#a78bfa]">
-                          The Sage speaks:
+                        <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-warm-purple">
+                          AI Coach reflects:
                         </p>
-                        <p className="font-lora italic text-xs leading-relaxed text-[#f5e6d3]">
-                          &ldquo;This Quest is a testament to your endurance. The {currentRank} rank suits you, but your Familiar senses a Knightly heart.&rdquo;
+                        <p className="font-quick italic text-xs leading-relaxed text-warm-cream">
+                          &ldquo;This Mastery Path is a testament to your endurance. You are progressing well as a {currentRank}.&rdquo;
                         </p>
                       </div>
                     </div>

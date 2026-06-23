@@ -1,459 +1,435 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { 
-  IconBuildingCastle, 
-  IconSword, 
+  IconHourglass, 
   IconMap, 
   IconShield, 
-  IconMoon, 
-  IconBook 
+  IconCircleCheck, 
+  IconChartBar, 
+  IconMusic, 
+  IconBrain,
+  IconArrowRight
 } from "@tabler/icons-react";
 
-function IconScroll(props: any) {
+// Premium Easing Curve (easeOutExpo)
+const EXPO_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
+    <motion.p 
+      initial={{ opacity: 0, x: -10 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.6, ease: EXPO_EASE }}
+      className="font-space font-bold text-[10px] uppercase tracking-[0.25em] text-warm-amber mb-4 flex items-center gap-2"
     >
-      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-      <path d="M17 18c.5 0 1 .5 1 1s-.5 1 -1 1h-10c-1.5 0 -3 -1.2 -3 -3s1.5 -3 3 -3h10c1.5 0 3 .8 3 2.5s-1.5 2.5 -3 2.5" />
-      <path d="M17 14v-8c0 -1.5 -1.5 -2.5 -3 -2.5s-3 1 -3 2.5v12" />
-    </svg>
+      <span className="h-1 w-6 bg-warm-amber/60 rounded-full" />
+      {children}
+    </motion.p>
   );
 }
 
-export default function Landing() {
-  const [mounted, setMounted] = useState(false);
+const PILLARS = [
+  { 
+    title: "Energy-Based Planning", 
+    desc: "Match tasks to your mental capacity (low, medium, or high energy) so you always know what you can handle next.", 
+    icon: "🔋" 
+  },
+  { 
+    title: "Streak Protection", 
+    desc: "Life happens. Safety shields prevent your streaks from resetting to zero when you need to take a day off.", 
+    icon: "🛡️" 
+  },
+  { 
+    title: "AI Micro-Breakdowns", 
+    desc: "Stuck on a task? The AI Coach breaks overwhelming items down into absolute micro-steps so you can start anywhere.", 
+    icon: "🧠" 
+  },
+  { 
+    title: "Focus Soundscapes", 
+    desc: "Quiet the background noise and sharpen attention with low hums, ocean waves, and binaural beats.", 
+    icon: "🎵" 
+  },
+  { 
+    title: "Mastery Paths", 
+    desc: "Long-term goal mapping with sequential milestones and visual climber tracking to map your progression.", 
+    icon: "🛣️" 
+  },
+  { 
+    title: "Zero-Shame Layout", 
+    desc: "No aggressive warnings. No guilt. Just clean stats, visual companion feedback, and supportive guidance.", 
+    icon: "🕊️" 
+  },
+];
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+const CHAPTERS = [
+  { name: "Dashboard", desc: "A distraction-free overview of daily tasks and focus rings.", icon: IconChartBar },
+  { name: "Focus Timer", desc: "Flow blocks paired with customizable audio entrainment hums.", icon: IconHourglass },
+  { name: "Tasks Workspace", desc: "Clean task boards with priority tagging and step breakdowns.", icon: IconCircleCheck },
+  { name: "Mastery Paths", desc: "Roadmaps that track your growth from Novice to Master.", icon: IconMap },
+  { name: "Consistency Contracts", desc: "Habit agreements shielded against accidental slips.", icon: IconShield },
+  { name: "AI Advisor", desc: "A chat console to get micro-steps when feeling stuck or frozen.", icon: IconBrain },
+  { name: "Soundscape Customizer", desc: "Live mixer to adjust white, brown, pink noise and binaural waves.", icon: IconMusic },
+];
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-[#0e0c0a] flex items-center justify-center">
-        <div className="font-quick text-[#f5efe8] text-sm tracking-widest animate-pulse">
-          PREPARING THE REALM...
-        </div>
-      </div>
-    );
+const CHRONICLES = [
+  {
+    entry: "Insight I",
+    date: "Day 47",
+    text: "Breaking down complex projects to micro-steps helped me complete my coding assignment. My companion reached level 8.",
+    sig: "— Kaelen, Software Developer"
+  },
+  {
+    entry: "Insight II",
+    date: "Day 90",
+    text: "The streak protection contract is amazing. I missed one busy day but didn't lose my momentum.",
+    sig: "— Alys, Designer"
+  },
+  {
+    entry: "Insight III",
+    date: "Day 180",
+    text: "I finally found a system that works with my ADHD. Consistency feels natural now.",
+    sig: "— Thorne, Project Lead"
   }
+];
 
-  // Chapter metadata for Section 3
-  const CHAPTERS = [
-    { 
-      name: "The War Room", 
-      desc: "Know what matters. Replaces your dashboard entirely with a tactical center.", 
-      icon: IconBuildingCastle 
-    },
-    { 
-      name: "The Battle", 
-      desc: "Enter pure focus. Reframe distraction into a legendary battle against time.", 
-      icon: IconSword 
-    },
-    { 
-      name: "The Scroll", 
-      desc: "Accept your missions. Dynamic RPG tasks, strikes, and boss fights.", 
-      icon: IconScroll 
-    },
-    { 
-      name: "The Great Quests", 
-      desc: "Build your mastery. Map out long-term skill development roadmaps.", 
-      icon: IconMap 
-    },
-    { 
-      name: "The Knight's Oath", 
-      desc: "Commit to consistency. Shields protect your Oath Fire from turning to ash.", 
-      icon: IconShield 
-    },
-    { 
-      name: "Your Familiar", 
-      desc: "Never fight alone. A spirit companion that grows and fights alongside you.", 
-      icon: IconMoon 
-    },
-    { 
-      name: "The Chronicle", 
-      desc: "Your legend, written in time. A comprehensive record of your daily victories.", 
-      icon: IconBook 
-    },
-  ];
+export default function Landing() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // 1. Scroll tracking setup
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
 
-  // Familiar Stages metadata for Section 4
-  const EVOLUTIONS = [
-    { stage: "First Bond", emoji: "🥚", label: "Stage 1: Summoned" },
-    { stage: "Battle Tested", emoji: "🐣", label: "Stage 2: Awakened" },
-    { stage: "War Hardened", emoji: "🦊", label: "Stage 3: Familiar Art" },
-    { stage: "Awakened Spirit", emoji: "🐉", label: "Stage 4: Ancient Power" }
-  ];
+  // Smooth scroll progress bar value
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 150,
+    damping: 25,
+    restDelta: 0.001
+  });
 
-  // Journal entries for Section 5
-  const CHRONICLES = [
-    {
-      entry: "Entry I",
-      date: "Day 47",
-      text: "The DSA Dark Lord is defeated. My Familiar reached Level 8 today.",
-      sig: "— Sir Kaelen, Stormborn"
-    },
-    {
-      entry: "Entry II",
-      date: "Day 90",
-      text: "The Oath Fire has never dimmed. I am no longer a Commoner.",
-      sig: "— Dame Alys, Knight"
-    },
-    {
-      entry: "Entry III",
-      date: "Day 180",
-      text: "They call me Champion now. The Fog still comes. I ride anyway.",
-      sig: "— Commander Thorne, Legend"
-    }
-  ];
-
-  // Framer Motion animation presets
-  const containerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.15
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { duration: 0.5, ease: "easeOut" as const }
-    }
-  };
+  // 2. Scroll-linked ambient background transformations
+  const orb1Scale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.4, 0.8]);
+  const orb1Y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
+  
+  const orb2Scale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 0.7, 1.3]);
+  const orb2Y = useTransform(scrollYProgress, [0, 1], ["0%", "-40%"]);
+  
+  const orb3Y = useTransform(scrollYProgress, [0, 1], ["0%", "-60%"]);
 
   return (
-    <div className="relative min-h-screen bg-[#0e0c0a] text-[#f5efe8] font-sans selection:bg-[#f0a868]/30 selection:text-[#f5e6d3] overflow-x-hidden">
+    <div ref={containerRef} className="relative min-h-screen bg-warm-bg text-warm-text font-quick selection:bg-warm-amber/30 overflow-x-hidden">
       
-      {/* ── HEADER ── */}
-      <header className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
-        <Link href="/" className="font-quick font-bold text-xl tracking-wider text-[#f5efe8]">
-          focura<span className="text-[#f0a868]">.</span>
-        </Link>
-        <Link
-          href="/login"
-          className="font-quick font-bold text-xs uppercase tracking-widest text-[#f5efe8]/80 hover:text-[#f0a868] transition duration-300 border border-rgba(255,245,235,0.07) px-5 py-2.5 rounded-full bg-[#1a1714]/30 backdrop-blur-sm"
-        >
-          Enter War Room
-        </Link>
+      {/* Top Scroll Progress Indicator */}
+      <motion.div 
+        className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-warm-amber via-orange-400 to-warm-purple z-50 origin-left"
+        style={{ scaleX }}
+      />
+
+      {/* ── Scroll-Linked Ambient Backgrounds ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <motion.div 
+          style={{ scale: orb1Scale, y: orb1Y }}
+          className="absolute -top-[20vh] -left-[10vw] w-[60vw] h-[60vw] bg-warm-purple/4 rounded-full blur-[150px]" 
+        />
+        <motion.div 
+          style={{ scale: orb2Scale, y: orb2Y }}
+          className="absolute top-[30vh] -right-[15vw] w-[50vw] h-[50vw] bg-warm-amber/4 rounded-full blur-[150px]" 
+        />
+        <motion.div 
+          style={{ y: orb3Y }}
+          className="absolute bottom-[-10vh] left-[20vw] w-[40vw] h-[40vw] bg-warm-teal/2.5 rounded-full blur-[120px]" 
+        />
+      </div>
+
+      {/* ── Header ── */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-warm-bg/60 backdrop-blur-md border-b border-warm-border/30">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+          <Link href="/" className="font-space font-bold text-lg tracking-wider text-white">
+            focura<span className="text-warm-amber">.</span>
+          </Link>
+          <Link
+            href="/login"
+            className="font-space font-bold text-[11px] uppercase tracking-widest text-white/80 hover:text-warm-amber transition-colors duration-300 border border-white/10 px-4 py-2 rounded-full bg-warm-surface2/30 backdrop-blur-sm"
+          >
+            Enter Dashboard
+          </Link>
+        </div>
       </header>
 
-      {/* ── SECTION 1: HERO SECTION ── */}
-      <section className="relative min-h-screen w-full flex flex-col justify-center items-center px-6 text-center drifting-fog overflow-hidden">
-        
-        {/* Faint Grid Overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,245,235,0.015)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,245,235,0.015)_1px,transparent_1px)] bg-[size:60px_60px] pointer-events-none opacity-40 z-10" />
-        
-        {/* Gradient light behind content */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#f0a868]/5 rounded-full filter blur-[120px] pointer-events-none" />
-
-        <div className="max-w-3xl relative z-20 space-y-8 mt-12">
+      {/* ================================================================
+         HERO SECTION (Spring & Easing Viewport Entrances)
+      ================================================================ */}
+      <section className="relative min-h-screen flex flex-col justify-center items-center px-6 z-10 pt-20">
+        <div className="max-w-4xl mx-auto text-center space-y-6">
           
-          <motion.p 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="font-quick font-bold uppercase tracking-[0.25em] text-xs text-[#f0a868]"
-          >
-            FOR THE STORMBORN
-          </motion.p>
-
-          <motion.h1 
+          <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-            className="font-cinzel text-3xl sm:text-5xl lg:text-[3.5rem] font-bold leading-tight text-[#f5efe8] drop-shadow-[0_2px_10px_rgba(14,12,10,0.8)]"
+            transition={{ duration: 0.8, ease: EXPO_EASE }}
           >
-            Every Legend Began as Someone<br />Who Almost Gave Up.
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-warm-amber/30 bg-warm-amber/5 px-4 py-1.5 text-xs font-semibold text-warm-amber font-space">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warm-amber opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-warm-amber"></span>
+              </span>
+              ADHD-FIRST PRODUCTIVITY WORKSPACE
+            </span>
+          </motion.div>
+
+          <motion.h1 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.15, ease: EXPO_EASE }}
+            className="font-space font-bold text-[clamp(2.5rem,7vw,4.8rem)] leading-[1.05] tracking-[-0.03em] text-warm-cream"
+          >
+            Focus is not a talent.<br />
+            <span className="text-warm-amber bg-gradient-to-r from-warm-amber to-orange-400 bg-clip-text text-transparent">It is a system.</span>
           </motion.h1>
 
           <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.3 }}
-            className="font-lora italic text-[#f5efe8]/65 text-sm sm:text-lg leading-relaxed max-w-xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.3, ease: EXPO_EASE }}
+            className="font-quick text-base sm:text-lg text-warm-textMuted max-w-2xl mx-auto leading-relaxed"
           >
-            Your mind moves like lightning.<br />
-            Your ideas arrive like storms.<br />
-            And every single day, The Fog tries to swallow you before you begin.<br /><br />
-            Focura is not a productivity app.<br />
-            It is the story of what you became<br />
-            when you decided to fight back.
+            Your brain is not broken. It simply needs a distraction-free layout.
+            Focura replaces overwhelming dashboards with immediate feedback loops, streak protections, and micro-task steps.
           </motion.p>
 
           <motion.div 
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-4"
+            transition={{ duration: 0.8, delay: 0.45, ease: EXPO_EASE }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
           >
             <Link
               href="/login"
-              className="font-quick font-bold text-xs uppercase tracking-widest text-[#0e0c0a] bg-[#f0a868] px-8 py-4 rounded-full hover:shadow-[0_0_30px_rgba(240,168,104,0.3)] transition duration-300"
+              className="group font-space font-bold text-xs uppercase tracking-widest text-warm-bg bg-warm-amber px-8 py-4 rounded-full hover:shadow-[0_0_30px_rgba(240,168,104,0.35)] hover:scale-[1.02] transition-all duration-300 flex items-center gap-2"
             >
-              Begin Your Journey →
+              Get Started
+              <IconArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
-              href="#problem"
-              className="font-quick text-xs uppercase tracking-widest text-[#f5efe8]/50 hover:text-[#f5efe8] transition duration-300 underline underline-offset-4"
+              href="#philosophy"
+              className="font-space font-bold text-xs uppercase tracking-widest text-warm-textMuted hover:text-warm-text border border-white/10 hover:border-warm-amber/30 px-8 py-4 rounded-full transition-all duration-300"
             >
-              See how it works
+              See Architecture
             </a>
           </motion.div>
 
         </div>
       </section>
 
-      {/* ── SECTION 2: THE PROBLEM ── */}
-      <section id="problem" className="relative py-28 lg:py-36 bg-[#0e0c0a] border-t border-[#1a1714] overflow-hidden">
-        
-        {/* Dynamic Fog Overlay (Gets heavier, then clears on scroll) */}
-        <motion.div
-          initial={{ opacity: 0.03 }}
-          whileInView={{ opacity: [0.03, 0.12, 0.03] }}
-          viewport={{ once: false, margin: "-25% 0px -25% 0px" }}
-          transition={{ duration: 5, ease: "easeInOut" }}
-          className="absolute inset-0 bg-[#f5efed]/[0.04] pointer-events-none filter blur-3xl"
-        />
-
-        <div className="max-w-4xl mx-auto px-6 text-center space-y-6 relative z-10">
-          <motion.h2 
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="font-cinzel text-2xl sm:text-4xl text-[#f5efe8]"
-          >
-            The Fog is Real.
-          </motion.h2>
-          
-          <motion.p 
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-            className="font-lora italic text-lg sm:text-2xl text-[#f5efe8]/65 max-w-2xl mx-auto leading-relaxed"
-          >
-            &ldquo;It is not laziness.<br />
-            It is not weakness.<br />
-            It is a storm inside a mind<br />
-            that was built for something greater —<br />
-            but never given the right map.&rdquo;
-          </motion.p>
-        </div>
-      </section>
-
-      {/* ── SECTION 3: THE JOURNEY ── */}
-      <section className="relative py-28 lg:py-36 bg-[#141210] border-t border-b border-[#1a1714] overflow-hidden">
-        <div className="max-w-3xl mx-auto px-6 relative z-10">
-          
-          <div className="text-center mb-20">
-            <h2 className="font-cinzel text-2xl sm:text-4xl text-[#f5efe8]">
-              Your Journey Has Seven Chapters
-            </h2>
-            <p className="font-lora italic text-xs sm:text-sm text-[#f5efe8]/45 mt-2">
-              The path of the Stormborn is written in focus.
-            </p>
-          </div>
-
-          {/* Interactive Quest Road Path */}
-          <div className="relative pl-12 sm:pl-16">
+      {/* ================================================================
+         STICKY SPLIT-SCREEN FEATURE SECTION (Viewport Detection & Sticky positions)
+      ================================================================ */}
+      <section id="philosophy" className="relative py-28 lg:py-36 bg-warm-surface/20 border-y border-warm-border/50 z-10">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1.3fr] gap-16 items-start">
             
-            {/* The Quest Path: Gold vertical line */}
-            <div className="absolute left-[26px] top-6 bottom-6 w-[1.5px] bg-gradient-to-b from-[#f0a868]/15 via-[#f0a868]/80 to-[#f0a868]/15 pointer-events-none" />
+            {/* Sticky Left Column */}
+            <div className="md:sticky md:top-32 h-fit space-y-6">
+              <SectionLabel>Philosophy</SectionLabel>
+              <h2 className="font-space font-bold text-[clamp(2rem,4vw,3.2rem)] leading-[1.1] text-warm-cream">
+                Designed to reduce cognitive friction.
+              </h2>
+              <p className="font-quick text-warm-textMuted leading-relaxed">
+                Traditional productivity apps expect you to organize, plan, and schedule perfectly. For ADHD brains, that planning phase is exactly where focus breaks.
+              </p>
+              <p className="font-quick text-warm-textMuted leading-relaxed">
+                Focura shifts the heavy lifting to its clean design system. Break tasks down with AI counsel, buffer against miss days, and keep streaks alive under your own terms.
+              </p>
+              <div className="pt-4 hidden md:block">
+                <div className="h-[2px] w-20 bg-warm-amber/30 rounded-full" />
+              </div>
+            </div>
 
-            <motion.div 
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-10% 0px -10% 0px" }}
-              className="space-y-12"
-            >
-              {CHAPTERS.map((chap, idx) => (
-                <motion.div 
-                  key={chap.name}
-                  variants={itemVariants}
-                  className="relative group flex items-start gap-5 text-left"
+            {/* Right Column: Viewport-detected scrolling cards */}
+            <div className="space-y-6">
+              {PILLARS.map((pillar, i) => (
+                <motion.div
+                  key={pillar.title}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ 
+                    type: "spring", 
+                    stiffness: 100, 
+                    damping: 18, 
+                    mass: 0.8,
+                    delay: i * 0.05 
+                  }}
+                  className="p-6 rounded-2xl bg-warm-surface/50 border border-warm-border/80 hover:border-warm-amber/30 transition-all duration-300 group flex gap-4 items-start shadow-sm"
                 >
-                  {/* Node icon indicator */}
-                  <div className="absolute -left-[48px] sm:-left-[54px] w-9 h-9 rounded-full bg-[#1a1714] border border-[#f0a868]/30 group-hover:border-[#f0a868] flex items-center justify-center text-[#f0a868]/60 group-hover:text-[#f0a868] transition duration-300 shadow-[0_0_15px_rgba(14,12,10,0.5)] relative z-10">
-                    <chap.icon size={15} stroke={2} />
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-warm-surface2 border border-warm-border text-2xl group-hover:scale-110 group-hover:border-warm-amber/20 transition-all">
+                    {pillar.icon}
                   </div>
-
-                  <div>
-                    <h3 className="font-quick font-bold text-[#f0a868] text-base group-hover:text-[#f5efe8] transition duration-300">
-                      {chap.name}
+                  <div className="space-y-1">
+                    <h3 className="font-space font-bold text-sm text-warm-cream group-hover:text-warm-amber transition-colors">
+                      {pillar.title}
                     </h3>
-                    <p className="font-sans text-xs sm:text-sm text-[#f5efe8]/50 mt-1 max-w-xl">
-                      {chap.desc}
+                    <p className="font-quick text-xs text-warm-textMuted leading-relaxed">
+                      {pillar.desc}
                     </p>
                   </div>
                 </motion.div>
               ))}
-            </motion.div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ── SECTION 4: THE FAMILIAR ── */}
-      <section className="relative py-28 lg:py-36 bg-[#0e0c0a] overflow-hidden">
-        <div className="max-w-5xl mx-auto px-6 relative z-10">
-          
-          <div className="grid gap-12 lg:grid-cols-2 items-center">
-            
-            {/* Silhouettes Left */}
-            <motion.div 
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-2 gap-4 order-2 lg:order-1"
-            >
-              {EVOLUTIONS.map((evo) => (
-                <motion.div
-                  key={evo.stage}
-                  variants={itemVariants}
-                  className="flex flex-col items-center p-6 bg-[#1a1714] rounded-2xl border border-rgba(255,245,235,0.07) relative group overflow-hidden"
-                >
-                  {/* Background glow on hover */}
-                  <div className="absolute inset-0 bg-[#f0a868]/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  <div className="relative w-24 h-24 flex items-center justify-center bg-[#141210] rounded-full mb-3 border border-rgba(255,245,235,0.05)">
-                    <div className="absolute inset-0 bg-[#f0a868]/10 rounded-full filter blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    
-                    {/* Silhouette transition to full color on hover */}
-                    <span className="text-5xl select-none filter brightness-0 drop-shadow-[0_0_12px_rgba(240,168,104,0.6)] group-hover:brightness-100 group-hover:drop-shadow-[0_0_20px_rgba(240,168,104,0.8)] transition-all duration-700">
-                      {evo.emoji}
-                    </span>
-                  </div>
-                  <span className="font-quick font-bold text-sm text-[#f0a868] relative z-10">{evo.stage}</span>
-                  <span className="font-sans text-[10px] text-[#f5efe8]/45 mt-0.5 relative z-10">{evo.label}</span>
-                </motion.div>
-              ))}
-            </motion.div>
-
-            {/* Narrative Right */}
-            <div className="space-y-6 order-1 lg:order-2 text-center lg:text-left">
-              <span className="font-quick font-bold uppercase tracking-wider text-xs text-[#a78bfa]">
-                SPIRIT COMPANION
-              </span>
-              <h2 className="font-cinzel text-2xl sm:text-4xl text-[#f5efe8]">
-                You Were Never Meant to Fight Alone.
-              </h2>
-              <p className="font-lora italic text-[#f5efe8]/65 text-sm sm:text-base leading-relaxed">
-                Your Familiar chose you. It grows when you grow. It rests when you fall. 
-                It has been with every great knight — now it is with you.<br /><br />
-                Watch it awaken from a dormant spirit shell into a dragon companion 
-                as you fulfill missions on the Scroll.
-              </p>
             </div>
 
           </div>
+        </div>
+      </section>
+
+      {/* ================================================================
+         COMPREHENSIVE WORKSPACE SECTION (Viewport Cascading animations)
+      ================================================================ */}
+      <section className="relative py-28 lg:py-36 px-6 z-10">
+        <div className="max-w-6xl mx-auto">
+          
+          <div className="text-center mb-20 space-y-4">
+            <SectionLabel>Architecture</SectionLabel>
+            <h2 className="font-space font-bold text-[clamp(2rem,4vw,3.2rem)] leading-[1.1] text-warm-cream">
+              Distraction-Free Layout
+            </h2>
+            <p className="font-quick text-warm-textMuted max-w-lg mx-auto">
+              A premium, minimalist product shell structured around energy states and progress cycles.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {CHAPTERS.map((ch, i) => (
+              <motion.div
+                key={ch.name}
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                whileInView={{ opacity: 1, scale: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 120, 
+                  damping: 18,
+                  delay: i * 0.04 
+                }}
+                className="group relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface/40 p-6 flex flex-col justify-between hover:border-warm-amber/20 transition-all duration-300"
+              >
+                <div className="space-y-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-warm-surface2 border border-warm-border text-warm-amber group-hover:scale-105 transition-transform duration-300">
+                    <ch.icon size={22} stroke={2} />
+                  </div>
+                  <div>
+                    <h3 className="font-space font-bold text-sm text-warm-cream group-hover:text-warm-amber transition-colors duration-300">
+                      {ch.name}
+                    </h3>
+                    <p className="font-quick text-xs text-warm-textMuted mt-1 leading-relaxed">
+                      {ch.desc}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
 
         </div>
       </section>
 
-      {/* ── SECTION 5: THE CHRONICLE (Hall of Legends) ── */}
-      <section className="relative py-28 lg:py-36 bg-[#141210] border-t border-b border-[#1a1714] overflow-hidden">
-        <div className="max-w-5xl mx-auto px-6 relative z-10 text-center">
+      {/* ================================================================
+         TESTIMONIALS (Micro-interactive triggers)
+      ================================================================ */}
+      <section className="relative py-28 lg:py-36 bg-warm-surface/20 border-y border-warm-border/50 z-10">
+        <div className="max-w-6xl mx-auto px-6">
           
-          <div className="mb-16">
-            <span className="font-quick font-bold uppercase tracking-wider text-xs text-[#f0a868]">
-              THE CHRONICLE
-            </span>
-            <h2 className="font-cinzel text-2xl sm:text-4xl text-[#f5efe8] mt-2">
-              The Hall of Legends
+          <div className="text-center mb-20 space-y-4">
+            <SectionLabel>User Insights</SectionLabel>
+            <h2 className="font-space font-bold text-[clamp(2rem,4vw,3.2rem)] leading-[1.1] text-warm-cream">
+              Consistent focus, zero shame
             </h2>
-            <p className="font-lora italic text-xs sm:text-sm text-[#f5efe8]/45 mt-2">
-              Stories of knights who conquered The Fog.
-            </p>
           </div>
 
-          {/* Ancient Scroll Journal Pages */}
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid gap-6 md:grid-cols-3 text-left"
-          >
-            {CHRONICLES.map((item) => (
+          <div className="grid gap-6 md:grid-cols-3">
+            {CHRONICLES.map((item, i) => (
               <motion.div
                 key={item.sig}
-                variants={itemVariants}
-                className="bg-[#1a1714] border border-[#f0a868]/20 hover:border-[#f0a868]/50 p-6 rounded-2xl shadow-xl flex flex-col justify-between min-h-[180px] transition duration-300 relative group"
+                initial={{ opacity: 0, y: 35 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.8, delay: i * 0.1, ease: EXPO_EASE }}
+                className="bg-warm-surface border border-warm-border hover:border-warm-amber/30 p-6 rounded-2xl shadow-sm flex flex-col justify-between min-h-[200px] transition duration-300 relative group"
               >
-                {/* Ancient torn parchment effect hint */}
-                <div className="absolute top-0 right-0 w-8 h-8 border-t border-r border-[#f0a868]/10 rounded-tr-2xl group-hover:border-[#f0a868]/40 transition duration-300" />
+                <div className="absolute top-0 right-0 w-8 h-8 border-t border-r border-warm-amber/10 rounded-tr-2xl group-hover:border-warm-amber/40 transition duration-300" />
                 
                 <div>
-                  <div className="flex justify-between items-center text-xs font-mono text-[#f0a868] opacity-75 mb-4">
+                  <div className="flex justify-between items-center text-[10px] font-space text-warm-amber opacity-75 mb-4">
                     <span>{item.entry}</span>
                     <span>{item.date}</span>
                   </div>
-                  <p className="font-lora italic text-sm text-[#f5e6d3] leading-relaxed">
+                  <p className="font-quick italic text-sm text-warm-cream leading-relaxed">
                     &ldquo;{item.text}&rdquo;
                   </p>
                 </div>
                 
-                <span className="font-quick text-xs font-semibold text-[#f5efe8]/40 mt-4 block">
+                <span className="font-space text-xs font-semibold text-warm-textMuted mt-6 block">
                   {item.sig}
                 </span>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
 
         </div>
       </section>
 
-      {/* ── SECTION 6: FINAL CTA ── */}
-      <section className="relative py-32 lg:py-40 bg-[#0e0c0a] overflow-hidden text-center flex flex-col items-center justify-center">
+      {/* ================================================================
+         FINAL CTA (Scale & Spring triggers)
+      ================================================================ */}
+      <section className="relative py-32 lg:py-40 z-10 text-center overflow-hidden">
         
         {/* Subtle grid pattern background */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,245,235,0.01)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,245,235,0.01)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-30" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-30" />
         
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#f0a868]/5 rounded-full filter blur-[150px] pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-warm-amber/5 rounded-full filter blur-[150px] pointer-events-none" />
 
         <div className="max-w-2xl px-6 space-y-6 relative z-10">
-          <h2 className="font-cinzel text-3xl sm:text-5xl text-[#f5efe8] leading-tight">
-            The Kingdom Will Not<br />Build Itself.
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ type: "spring", stiffness: 100, damping: 15 }}
+            className="w-16 h-16 mx-auto rounded-full bg-warm-amber/10 border border-warm-amber/20 flex items-center justify-center"
+          >
+            <span className="text-2xl animate-pulse">⚡</span>
+          </motion.div>
+          
+          <h2 className="font-space font-bold text-3xl sm:text-5xl text-warm-cream leading-tight">
+            Your Focus Workspace Awaits.
           </h2>
-          <p className="font-lora italic text-sm sm:text-lg text-[#f5efe8]/60">
-            Your quest begins the moment you decide.
+          <p className="font-quick text-sm sm:text-lg text-warm-textMuted">
+            Start building positive routines today.
           </p>
           
-          <div className="pt-6">
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.15, duration: 0.8, ease: EXPO_EASE }}
+            className="pt-6"
+          >
             <Link
               href="/login"
-              className="font-quick font-bold text-xs uppercase tracking-widest text-[#0e0c0a] bg-[#f0a868] px-10 py-5 rounded-full hover:shadow-[0_0_40px_rgba(240,168,104,0.4)] transition duration-300 inline-block"
+              className="font-space font-bold text-xs uppercase tracking-widest text-warm-bg bg-warm-amber px-10 py-5 rounded-full hover:shadow-[0_0_40px_rgba(240,168,104,0.4)] transition duration-300 inline-block"
             >
-              Claim Your Title →
+              Get Started →
             </Link>
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="relative py-8 bg-[#0e0c0a] border-t border-[#1a1714] z-10 text-center">
-        <p className="font-mono text-[10px] text-[#f5efe8]/20 tracking-wider">
-          THE REALM OF FOCURA &copy; 2026 &middot; BUILT FOR THE STORMBORN
+      {/* ── Footer ── */}
+      <footer className="relative py-8 bg-warm-bg border-t border-warm-border z-10 text-center font-space">
+        <p className="font-mono text-[10px] text-warm-textMuted tracking-wider">
+          FOCURA &copy; {new Date().getFullYear()} &middot; DESIGNED FOR ADHD COGNITION
         </p>
       </footer>
 

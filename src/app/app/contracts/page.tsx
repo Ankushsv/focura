@@ -27,7 +27,7 @@ export default function ContractsPage() {
   const [frequency, setFrequency] = useState<ContractFrequency>("daily");
   const [shields, setShields] = useState(3);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
-  const [name, setName] = useState("knight");
+  const [name, setName] = useState("User");
 
   useEffect(() => {
     async function loadProfileName() {
@@ -42,7 +42,7 @@ export default function ContractsPage() {
             .eq("id", user.id)
             .single();
           if (profile) {
-            setName(profile.username || profile.name || user.email?.split("@")[0] || "knight");
+            setName(profile.username || profile.name || user.email?.split("@")[0] || "User");
           }
         }
       } catch {}
@@ -64,7 +64,7 @@ export default function ContractsPage() {
     setFrequency("daily");
     setShields(3);
     setShowForm(false);
-    bus.emit("pet:react", { message: "Your oath has been sealed in iron. 📜" });
+    bus.emit("pet:react", { message: "Your contract has been saved. 📜" });
   }
 
   function handleCheckIn(contractId: string) {
@@ -74,7 +74,7 @@ export default function ContractsPage() {
       if (xp > 0) {
         awardXp(xp, "contracts");
         fireConfetti();
-        bus.emit("pet:react", { message: "The Oath Shield holds. Consistency strengthened! 🛡️" });
+        bus.emit("pet:react", { message: "Consistency strengthened! 🛡️" });
       }
       setCheckingIn(null);
     }, 350);
@@ -82,43 +82,43 @@ export default function ContractsPage() {
 
   function handleBurnShield(contractId: string) {
     burnShield(contractId);
-    bus.emit("pet:react", { message: "The Oath Shield dims — but it can be relit. 💔" });
+    bus.emit("pet:react", { message: "Safety Shield used — remember to stay consistent. 💔" });
   }
 
   const days14 = last14Days();
 
   if (!loaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0e0c0a]">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#f0a868]/30 border-t-[#f0a868]" />
+      <div className="flex min-h-screen items-center justify-center bg-warm-bg">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-warm-amber/30 border-t-warm-amber" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0e0c0a] px-4 py-6 sm:px-8 space-y-8">
+    <div className="min-h-screen bg-warm-bg px-4 py-6 sm:px-8 space-y-8">
       {/* ── Consistency Hero ── */}
-      <div className="relative mx-auto mb-10 max-w-5xl">
-        <div className="relative overflow-hidden rounded-2xl border border-realm-border bg-[#1a1714] px-8 py-10 shadow-2xl">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-realm-gold/5 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-realm-purple/5 blur-3xl" />
+      <div className="relative mx-auto mb-10 max-w-[1400px]">
+        <div className="relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface px-8 py-10 shadow-2xl">
+          <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-warm-amber/5 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-warm-purple/5 blur-3xl" />
 
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-5">
               <div className="relative flex-shrink-0">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-realm-border bg-[#141210] text-4xl shadow-lg">
-                  <IconShield className="h-10 w-10 text-realm-gold animate-pulse" />
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-warm-border bg-warm-surface2 text-4xl shadow-lg">
+                  <IconShield className="h-10 w-10 text-warm-amber animate-pulse" />
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#f0a868]">
-                  THE KNIGHT&apos;S OATH
+                <div className="text-[10px] font-quick font-bold uppercase tracking-widest text-warm-amber">
+                  CONSISTENCY CONTRACTS
                 </div>
-                <h1 className="font-cinzel text-xl sm:text-3xl font-bold text-[#f5efe8]">
-                  The Knight&apos;s Oath
+                <h1 className="font-space text-xl sm:text-3xl font-bold text-warm-text">
+                  Consistency Contracts
                 </h1>
-                <p className="font-lora italic text-xs sm:text-sm text-realm-muted max-w-md">
-                  &ldquo;An oath is not broken by a single hard day. It is kept by the decision to return.&rdquo;
+                <p className="font-quick italic text-xs sm:text-sm text-warm-textMuted max-w-md">
+                  &ldquo;Consistency isn&apos;t broken by a single hard day. It is kept by the decision to return.&rdquo;
                 </p>
               </div>
             </div>
@@ -129,21 +129,21 @@ export default function ContractsPage() {
                 <div className="flex gap-4">
                   <div className="text-center">
                     <div className="text-xl font-mono font-bold text-white">{contracts.length}</div>
-                    <div className="text-[10px] font-quick font-bold text-realm-muted uppercase tracking-wider">Oaths</div>
+                    <div className="text-[10px] font-quick font-bold text-warm-textMuted uppercase tracking-wider">Contracts</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-mono font-bold text-realm-gold">
+                    <div className="text-xl font-mono font-bold text-warm-amber">
                       {Math.max(...contracts.map((c) => c.streak), 0)}
                     </div>
-                    <div className="text-[10px] font-quick font-bold text-realm-muted uppercase tracking-wider">Best Streak</div>
+                    <div className="text-[10px] font-quick font-bold text-warm-textMuted uppercase tracking-wider">Best Streak</div>
                   </div>
                 </div>
               )}
               <button
                 onClick={() => setShowForm((v) => !v)}
-                className="rounded-full bg-realm-gold text-[#0e0c0a] px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.3)] transition"
+                className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
               >
-                {showForm ? "✕ Cancel" : "+ Swear a New Oath"}
+                {showForm ? "✕ Cancel" : "+ Create a Contract"}
               </button>
             </div>
           </div>
@@ -151,43 +151,43 @@ export default function ContractsPage() {
 
         {/* ── New Contract Form ── */}
         {showForm && (
-          <div className="mt-5 overflow-hidden rounded-2xl border border-realm-border bg-realm-surface shadow-xl border-l-4 border-l-realm-gold">
-            <div className="border-b border-realm-border bg-[#141210] px-6 py-4">
-              <h2 className="flex items-center gap-2 text-sm font-quick font-bold text-[#f5efe8] uppercase tracking-wider">
-                <IconShield className="h-4 w-4 text-realm-gold" /> Swear Your Oath
+          <div className="mt-5 overflow-hidden rounded-2xl border border-warm-border bg-warm-surface shadow-xl border-l-4 border-l-warm-amber">
+            <div className="border-b border-warm-border bg-warm-surface2 px-6 py-4">
+              <h2 className="flex items-center gap-2 text-sm font-quick font-bold text-warm-text uppercase tracking-wider">
+                <IconShield className="h-4 w-4 text-warm-amber" /> Create Your Consistency Contract
               </h2>
             </div>
             <form onSubmit={handleAddContract} className="space-y-5 p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
+                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
                     What do you commit to?
                   </label>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Morning blade practice (Exercise)"
+                    placeholder="e.g. Daily workout (Exercise)"
                     required
-                    className="w-full rounded-xl border border-realm-border bg-realm-surface2 px-4 py-2.5 text-sm font-quick text-realm-text placeholder-realm-muted/50 outline-none focus:border-realm-gold transition"
+                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-amber transition"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
+                  <label className="mb-1.5 block text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
                     How much, how often? (Details)
                   </label>
                   <input
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="e.g. 20 minutes before breakfast"
-                    className="w-full rounded-xl border border-realm-border bg-realm-surface2 px-4 py-2.5 text-sm font-quick text-realm-text placeholder-realm-muted/50 outline-none focus:border-realm-gold transition"
+                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-amber transition"
                   />
                 </div>
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
-                    Oath Frequency
+                  <label className="mb-2 block text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
+                    Contract Frequency
                   </label>
                   <div className="flex gap-2">
                     {FREQUENCIES.map((f) => (
@@ -197,8 +197,8 @@ export default function ContractsPage() {
                         onClick={() => setFrequency(f)}
                         className={`rounded-xl border px-4 py-2 text-xs font-quick font-bold transition duration-200 ${
                           frequency === f
-                            ? "border-realm-gold bg-realm-gold-dim text-realm-gold shadow"
-                            : "border-realm-border bg-realm-surface2 text-realm-muted hover:text-realm-text"
+                            ? "border-warm-amber bg-warm-amber/15 text-warm-amber shadow"
+                            : "border-warm-border bg-warm-surface2 text-warm-textMuted hover:text-warm-text"
                         }`}
                       >
                         {FREQ_LABELS[f]}
@@ -208,8 +208,8 @@ export default function ContractsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
-                    Oath Shields ({shields})
+                  <label className="mb-2 block text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
+                    Safety Shields ({shields})
                   </label>
                   <div className="flex items-center gap-3">
                     <input
@@ -218,7 +218,7 @@ export default function ContractsPage() {
                       max={3}
                       value={shields}
                       onChange={(e) => setShields(Number(e.target.value))}
-                      className="h-1.5 w-28 accent-realm-gold"
+                      className="h-1.5 w-28 accent-warm-amber"
                     />
                     <div className="flex gap-1.5">
                       {[1, 2, 3].map((s) => (
@@ -226,7 +226,7 @@ export default function ContractsPage() {
                           key={s}
                           className={`text-xl transition-all duration-300 ${
                             s <= shields
-                              ? "drop-shadow-[0_0_8px_rgba(240,168,104,0.6)]"
+                              ? "drop-shadow-[0_0_8px_rgba(240,168,104,0.4)]"
                               : "opacity-20 grayscale"
                           }`}
                         >
@@ -241,14 +241,14 @@ export default function ContractsPage() {
               <div className="flex gap-3 pt-1">
                 <button
                   type="submit"
-                  className="rounded-full bg-realm-gold text-[#0e0c0a] px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.3)] transition"
+                  className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
                 >
-                  Seal My Oath ⚔️
+                  Save Contract
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="rounded-full bg-realm-surface2 border border-realm-border text-realm-muted px-6 py-2.5 text-xs font-quick font-bold hover:text-realm-text hover:bg-realm-surface transition"
+                  className="rounded-full bg-warm-surface2 border border-warm-border text-warm-textMuted px-6 py-2.5 text-xs font-quick font-bold hover:text-warm-text hover:bg-warm-surface transition"
                 >
                   Cancel
                 </button>
@@ -260,30 +260,30 @@ export default function ContractsPage() {
 
       {/* ── Empty State ── */}
       {contracts.length === 0 && !showForm && (
-        <div className="mx-auto max-w-5xl">
-          <div className="flex flex-col items-center gap-6 rounded-2xl border border-realm-gold/30 border-dashed bg-realm-surface px-8 py-20 text-center shadow">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-realm-gold/30 bg-[#141210]">
-              <IconShield className="h-8 w-8 text-realm-gold" />
+        <div className="mx-auto max-w-[1400px]">
+          <div className="flex flex-col items-center gap-6 rounded-2xl border border-warm-amber/30 border-dashed bg-warm-surface px-8 py-20 text-center shadow">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-warm-amber/30 bg-warm-surface2">
+              <IconShield className="h-8 w-8 text-warm-amber" />
             </div>
             <div className="space-y-1">
-              <h2 className="font-cinzel text-lg font-bold text-realm-text">No Custom Oaths sworn Yet</h2>
-              <p className="font-lora italic text-xs text-realm-muted max-w-sm mx-auto">
-                Consistency is the mark of a true knight. Swear an oath to yourself and strengthen your shield.
+              <h2 className="font-space text-lg font-bold text-warm-text">No Custom Contracts Yet</h2>
+              <p className="font-quick italic text-xs text-warm-textMuted max-w-sm mx-auto">
+                Consistency is the key to lasting change. Create a contract with yourself to track your daily progress.
               </p>
             </div>
             <button
               onClick={() => setShowForm(true)}
-              className="rounded-full bg-realm-gold text-[#0e0c0a] px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.3)] transition"
+              className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
             >
-              Swear Your Oath
+              Create consistency contract
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Contracts List (Oath Scrolls) ── */}
+      {/* ── Contracts List ── */}
       {contracts.length > 0 && (
-        <div className="relative mx-auto max-w-5xl space-y-6">
+        <div className="relative mx-auto max-w-[1400px] space-y-6">
           {contracts.map((contract) => {
             const checkedInToday = hasCheckedInToday(contract);
             const shieldsRemaining = contract.shieldsMax - contract.shieldsUsed;
@@ -291,25 +291,25 @@ export default function ContractsPage() {
               contract.checkIns.filter((c) => c.done).map((c) => c.date)
             );
 
-            // Rebrand statuses: "Oath holds" or "The fog crept in"
-            const statusLabel = checkedInToday ? "Oath holds" : "The fog crept in";
-            const statusColor = checkedInToday ? "border-realm-gold text-realm-gold bg-realm-gold-dim" : "border-realm-border text-realm-muted bg-[#141210]";
+            // Rebrand statuses: "Checked In" or "Pending"
+            const statusLabel = checkedInToday ? "Checked in" : "Pending check-in";
+            const statusColor = checkedInToday ? "border-warm-amber text-warm-amber bg-warm-amber/15" : "border-warm-border text-warm-textMuted bg-warm-surface2";
 
             return (
               <div
                 key={contract.id}
-                className="group overflow-hidden rounded-2xl border border-realm-border bg-realm-surface p-6 shadow transition hover:shadow-lg"
+                className="group overflow-hidden rounded-2xl border border-warm-border bg-warm-surface p-6 shadow transition hover:shadow-lg"
               >
                 <div className="space-y-5">
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-base font-quick font-bold text-[#f5efe8]">{contract.title}</h2>
-                        <span className="rounded-full border border-realm-border bg-[#141210] px-2.5 py-0.5 text-[10px] font-quick font-bold text-realm-muted uppercase tracking-wider">
+                        <h2 className="text-base font-quick font-bold text-warm-text">{contract.title}</h2>
+                        <span className="rounded-full border border-warm-border bg-warm-surface2 px-2.5 py-0.5 text-[10px] font-quick font-bold text-warm-textMuted uppercase tracking-wider">
                           {FREQ_LABELS[contract.frequency]}
                         </span>
-                        <span className="flex items-center gap-1.5 rounded-full border border-realm-gold/25 bg-realm-gold-dim px-2.5 py-0.5 text-[10px] font-quick font-bold text-realm-gold uppercase tracking-wider">
+                        <span className="flex items-center gap-1.5 rounded-full border border-warm-amber/25 bg-warm-amber/15 px-2.5 py-0.5 text-[10px] font-quick font-bold text-warm-amber uppercase tracking-wider">
                           <IconFlame className="h-3.5 w-3.5 animate-pulse" /> {contract.streak} day streak
                         </span>
                         <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-quick font-bold uppercase tracking-wider ${statusColor}`}>
@@ -317,24 +317,24 @@ export default function ContractsPage() {
                         </span>
                       </div>
                       {contract.description && (
-                        <p className="mt-1 text-xs font-lora italic text-realm-muted">{contract.description}</p>
+                        <p className="mt-1 text-xs font-quick italic text-warm-textMuted">{contract.description}</p>
                       )}
                     </div>
                     <button
                       onClick={() => deleteContract(contract.id)}
-                      className="rounded-lg p-1.5 text-realm-muted opacity-0 hover:bg-realm-surface2 hover:text-realm-crimson group-hover:opacity-100 transition"
-                      title="Abandon oath"
+                      className="rounded-lg p-1.5 text-warm-textMuted opacity-0 hover:bg-warm-surface2 hover:text-priority-critical group-hover:opacity-100 transition"
+                      title="Abandon contract"
                     >
                       ✕
                     </button>
                   </div>
 
                   {/* Stats Row */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-realm-border/50 pt-5">
-                    {/* The Oath Shield */}
-                    <div className="rounded-xl border border-realm-border bg-realm-surface2 p-3 flex flex-col justify-center">
-                      <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted mb-2">
-                        The Oath Shield
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-warm-border/50 pt-5">
+                    {/* The Safety Shield */}
+                    <div className="rounded-xl border border-warm-border bg-warm-surface2 p-3 flex flex-col justify-center">
+                      <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted mb-2">
+                        The Safety Shield
                       </div>
                       <div className="flex items-center gap-2">
                         {Array.from({ length: contract.shieldsMax }).map((_, i) => {
@@ -344,7 +344,7 @@ export default function ContractsPage() {
                               key={i}
                               className={`text-2xl transition-all duration-500 ${
                                 isIntact
-                                  ? "drop-shadow-[0_0_10px_rgba(240,168,104,0.65)] shield-glow"
+                                  ? "drop-shadow-[0_0_10px_rgba(240,168,104,0.4)] shield-glow"
                                   : "opacity-20 grayscale"
                               }`}
                             >
@@ -352,40 +352,40 @@ export default function ContractsPage() {
                             </span>
                           );
                         })}
-                        <span className="text-[10px] font-quick font-bold text-realm-muted ml-2">
-                          {shieldsRemaining > 0 ? "Your oath holds." : "Shield broken!"}
+                        <span className="text-[10px] font-quick font-bold text-warm-textMuted ml-2">
+                          {shieldsRemaining > 0 ? "Your contract holds." : "Shield broken!"}
                         </span>
                       </div>
                     </div>
 
                     {/* Streak */}
-                    <div className="rounded-xl border border-realm-border bg-realm-surface2 p-3">
-                      <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted mb-1">
+                    <div className="rounded-xl border border-warm-border bg-warm-surface2 p-3">
+                      <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted mb-1">
                         Best Streak
                       </div>
                       <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-xl font-mono font-bold text-realm-gold">{contract.bestStreak}</span>
-                        <span className="text-[10px] font-quick font-bold text-realm-muted uppercase tracking-wider">days honored</span>
+                        <span className="text-xl font-mono font-bold text-warm-amber">{contract.bestStreak}</span>
+                        <span className="text-[10px] font-quick font-bold text-warm-textMuted uppercase tracking-wider">days active</span>
                       </div>
                     </div>
 
                     {/* XP per Checkin */}
-                    <div className="rounded-xl border border-realm-border bg-realm-surface2 p-3">
-                      <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted mb-1">
-                        Days honored
+                    <div className="rounded-xl border border-warm-border bg-warm-surface2 p-3">
+                      <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted mb-1">
+                        Days completed
                       </div>
-                      <div className="text-xl font-mono font-bold text-realm-gold mt-1">
+                      <div className="text-xl font-mono font-bold text-warm-amber mt-1">
                         +{contract.xpPerCheckin}
-                        <span className="text-xs text-realm-muted ml-1.5 font-quick">LP per check-in</span>
+                        <span className="text-xs text-warm-textMuted ml-1.5 font-quick font-bold">XP per check-in</span>
                       </div>
                     </div>
                   </div>
 
                   {/* 14-day heatmap */}
-                  <div className="border-t border-realm-border/50 pt-5 space-y-2">
-                    <div className="flex items-center gap-2 text-[10px] font-quick font-bold uppercase tracking-wider text-realm-muted">
-                      <span>Your oath&apos;s record (Last 14 days)</span>
-                      <span className="text-realm-gold">
+                  <div className="border-t border-warm-border/50 pt-5 space-y-2">
+                    <div className="flex items-center gap-2 text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
+                      <span>Your record (Last 14 days)</span>
+                      <span className="text-warm-amber">
                         {days14.filter((d) => checkInSet.has(d)).length} / 14 days
                       </span>
                     </div>
@@ -399,15 +399,15 @@ export default function ContractsPage() {
                             title={day}
                             className={`h-6 w-6 flex-shrink-0 rounded-md transition-all duration-300 ${
                               done
-                                ? "shadow-[0_0_8px_rgba(240,168,104,0.35)]"
+                                ? "shadow-[0_0_8px_rgba(240,168,104,0.25)]"
                                 : isToday
-                                ? "border border-realm-gold bg-realm-gold-dim"
-                                : "border border-realm-border bg-realm-surface2"
+                                ? "border border-warm-amber bg-warm-amber/15"
+                                : "border border-warm-border bg-warm-surface2"
                             }`}
                             style={
                               done
                                 ? {
-                                    background: "#f0a868",
+                                    background: "var(--color-warm-amber)",
                                   }
                                 : undefined
                             }
@@ -418,46 +418,46 @@ export default function ContractsPage() {
                   </div>
 
                   {/* Actions row */}
-                  <div className="flex flex-wrap items-center gap-3 border-t border-realm-border/50 pt-5">
+                  <div className="flex flex-wrap items-center gap-3 border-t border-warm-border/50 pt-5">
                     <button
                       onClick={() => handleCheckIn(contract.id)}
                       disabled={checkedInToday || checkingIn === contract.id}
                       className={`relative flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-quick font-bold transition duration-200 active:scale-95 disabled:cursor-not-allowed ${
                         checkedInToday
-                          ? "border border-realm-teal/30 bg-realm-teal/10 text-realm-teal"
-                          : "bg-realm-gold text-[#0e0c0a] hover:shadow-[0_0_15px_rgba(240,168,104,0.3)]"
+                          ? "border border-warm-teal/30 bg-warm-teal/10 text-warm-teal"
+                          : "bg-warm-amber text-warm-bg hover:shadow-[0_0_15px_rgba(240,168,104,0.15)]"
                       }`}
                     >
                       {checkingIn === contract.id ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#0e0c0a] border-t-transparent" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-warm-bg border-t-transparent" />
                       ) : checkedInToday ? (
-                        <><span>✓</span> Oath Honored Today</>
+                        <><span>✓</span> Checked In Today</>
                       ) : (
-                        <><span>🛡️</span> Honor Your Oath</>
+                        <><span>🛡️</span> Check In</>
                       )}
                     </button>
 
                     <button
                       onClick={() => handleBurnShield(contract.id)}
                       disabled={shieldsRemaining === 0}
-                      className="rounded-full bg-realm-surface2 border border-realm-border text-realm-muted px-4 py-2 text-xs font-quick font-bold hover:text-realm-crimson hover:bg-realm-surface transition disabled:opacity-20"
+                      className="rounded-full bg-warm-surface2 border border-warm-border text-warm-textMuted px-4 py-2 text-xs font-quick font-bold hover:text-priority-critical hover:bg-warm-surface transition disabled:opacity-20"
                     >
-                      Miss a day (Test Shield crack)
+                      Simulate missed day (Test Shield crack)
                     </button>
                   </div>
                   
-                  {/* The Sage speaks (Roadmap insight block) */}
-                  <div className="border-t border-realm-border/50 pt-5">
-                    <div className="bg-[#191512] border-l-3 border-[#a78bfa] rounded-r-xl p-4 flex gap-3.5">
-                      <div className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-[#a78bfa]/10 text-[#a78bfa]">
+                  {/* AI Coach reflects (Roadmap insight block) */}
+                  <div className="border-t border-warm-border/50 pt-5">
+                    <div className="bg-warm-surface2 border-l-4 border-warm-purple rounded-r-xl p-4 flex gap-3.5">
+                      <div className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-warm-purple/10 text-warm-purple">
                         <IconBook className="h-4 w-4" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#a78bfa]">
-                          The Sage&apos;s counsel:
+                        <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-warm-purple">
+                          AI Coach counsel:
                         </p>
-                        <p className="font-lora italic text-xs leading-relaxed text-[#f5e6d3]">
-                          &ldquo;You came back every single time. That is what defines a knight. One fall does not end a knight&apos;s story.&rdquo;
+                        <p className="font-quick italic text-xs leading-relaxed text-warm-cream">
+                          &ldquo;You came back every single time. That is what builds lasting habits. One slip does not end your progress.&rdquo;
                         </p>
                       </div>
                     </div>
@@ -471,8 +471,8 @@ export default function ContractsPage() {
 
       <style>{`
         @keyframes shieldGlow {
-          0%, 100% { filter: drop-shadow(0 0 4px rgba(240,168,104,0.5)); }
-          50% { filter: drop-shadow(0 0 10px rgba(240,168,104,0.85)); }
+          0%, 100% { filter: drop-shadow(0 0 4px rgba(240,168,104,0.3)); }
+          50% { filter: drop-shadow(0 0 10px rgba(240,168,104,0.6)); }
         }
         .shield-glow {
           animation: shieldGlow 2s ease-in-out infinite;

@@ -27,35 +27,35 @@ interface MemoryNote {
 
 const TAG_META: Record<MemoryTag, { label: string; icon: React.ReactNode; color: string; bg: string; border: string; leftBorder: string }> = {
   idea: {
-    label: "Whisper (Idea)",
+    label: "Idea",
     icon: <IconSparkles size={14} />,
-    color: "text-realm-teal",
-    bg: "bg-realm-teal/10",
-    border: "border-realm-teal/30",
+    color: "text-warm-teal",
+    bg: "bg-warm-teal/10",
+    border: "border-warm-teal/30",
     leftBorder: "#5eead4",
   },
   block: {
-    label: "Stumbling Block (Blocker)",
+    label: "Blocker",
     icon: <IconShieldOff size={14} />,
-    color: "text-realm-crimson",
-    bg: "bg-realm-crimson/10",
-    border: "border-realm-crimson/30",
+    color: "text-rose-400",
+    bg: "bg-rose-500/10",
+    border: "border-rose-500/30",
     leftBorder: "#f87171",
   },
   thought: {
-    label: "Reflection (Thought)",
+    label: "Reflection",
     icon: <IconBook size={14} />,
-    color: "text-realm-purple",
-    bg: "bg-realm-purple/10",
-    border: "border-realm-purple/30",
+    color: "text-warm-purple",
+    bg: "bg-warm-purple/10",
+    border: "border-warm-purple/30",
     leftBorder: "#a78bfa",
   },
   tip: {
-    label: "Sage Council (Tip)",
+    label: "Focus Tip",
     icon: <IconWand size={14} />,
-    color: "text-realm-gold",
-    bg: "bg-realm-gold/10",
-    border: "border-realm-gold/30",
+    color: "text-warm-amber",
+    bg: "bg-warm-amber/10",
+    border: "border-warm-amber/30",
     leftBorder: "#f0a868",
   },
 };
@@ -203,48 +203,48 @@ export default function MemoryPage() {
 
   if (!loaded || !tasksLoaded)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-realm-bg text-realm-text">
+      <div className="flex min-h-screen items-center justify-center bg-warm-bg text-warm-text">
         <div className="relative">
-          <div className="h-14 w-14 animate-spin rounded-full border-2 border-realm-gold/30 border-t-realm-gold" />
+          <div className="h-14 w-14 animate-spin rounded-full border-2 border-warm-amber/30 border-t-warm-amber" />
           <span className="absolute inset-0 flex items-center justify-center text-xl">🧠</span>
         </div>
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-realm-bg text-realm-text px-4 py-8 md:px-8">
+    <div className="min-h-screen bg-warm-bg text-warm-text px-4 py-8 md:px-8 font-quick">
       {/* Ambient glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-32 top-0 h-[500px] w-[500px] rounded-full bg-realm-purple/5 blur-[120px]" />
-        <div className="absolute -right-32 bottom-0 h-[400px] w-[400px] rounded-full bg-realm-crimson/5 blur-[100px]" />
-        <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-realm-teal/5 blur-3xl" />
+        <div className="absolute -left-32 top-0 h-[500px] w-[500px] rounded-full bg-warm-purple/5 blur-[120px]" />
+        <div className="absolute -right-32 bottom-0 h-[400px] w-[400px] rounded-full bg-rose-500/5 blur-[100px]" />
+        <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-warm-teal/5 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-4xl space-y-8">
-        {/* ── Brain Hero ── */}
-        <div className="relative overflow-hidden rounded-2xl border border-realm-border bg-gradient-to-br from-realm-purple/10 via-realm-surface to-realm-crimson/5 px-8 py-10 shadow-2xl">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-realm-purple/5 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-realm-crimson/5 blur-3xl" />
+      <div className="relative mx-auto max-w-[1400px] w-full space-y-8">
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-2xl border border-warm-border bg-gradient-to-br from-warm-purple/10 via-warm-surface to-rose-500/5 px-8 py-10 shadow-2xl">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-warm-purple/5 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-rose-500/5 blur-3xl" />
 
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-5">
               <div className="relative flex-shrink-0">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-realm-purple/30 bg-gradient-to-br from-realm-purple/20 to-realm-surface text-4xl shadow-lg shadow-realm-purple/10">
-                  <IconBook size={40} className="text-realm-purple" />
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-warm-purple/30 bg-gradient-to-br from-warm-purple/20 to-warm-surface text-4xl shadow-lg shadow-warm-purple/10">
+                  <IconBook size={40} className="text-warm-purple" />
                 </div>
-                <div className="absolute -inset-1 rounded-2xl bg-realm-purple/15 blur-md pointer-events-none" />
+                <div className="absolute -inset-1 rounded-2xl bg-warm-purple/15 blur-md pointer-events-none" />
               </div>
               <div>
-                <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-realm-purple font-space">
-                  <span className="h-px w-4 bg-realm-purple/50" />
+                <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-warm-purple font-space">
+                  <span className="h-px w-4 bg-warm-purple/50" />
                   Brain Dump
-                  <span className="h-px w-4 bg-realm-purple/50" />
+                  <span className="h-px w-4 bg-warm-purple/50" />
                 </div>
-                <h1 className="font-cinzel text-4xl tracking-tight text-realm-cream sm:text-5xl">
-                  The Tome of Memories
+                <h1 className="font-space font-bold text-4xl tracking-tight text-warm-cream sm:text-5xl">
+                  Focus Notes
                 </h1>
-                <p className="mt-2 text-sm text-realm-muted font-lora italic">
-                  No judgment. Just capture. Unburden your mind, traveler. 🔮
+                <p className="mt-2 text-sm text-warm-textMuted font-quick italic">
+                  No judgment. Just capture. Capture ideas, clear blocker nodes, and log reflections. 🧠
                 </p>
               </div>
             </div>
@@ -252,39 +252,39 @@ export default function MemoryPage() {
             {/* Stats */}
             <div className="flex gap-6 font-space">
               <div className="text-center">
-                <div className="text-2xl font-bold text-realm-cream">{notes.length}</div>
-                <div className="text-[10px] text-realm-muted uppercase tracking-wider">Unbound</div>
+                <div className="text-2xl font-bold text-warm-cream">{notes.length}</div>
+                <div className="text-[10px] text-warm-textMuted uppercase tracking-wider">General</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-realm-purple">{taskMemoryNotes.length}</div>
-                <div className="text-[10px] text-realm-muted uppercase tracking-wider">From Battles</div>
+                <div className="text-2xl font-bold text-warm-purple">{taskMemoryNotes.length}</div>
+                <div className="text-[10px] text-warm-textMuted uppercase tracking-wider">From Sessions</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* ── Add Note Form ── */}
-        <div className="overflow-hidden rounded-2xl border border-realm-border bg-realm-surface shadow-md">
+        <div className="overflow-hidden rounded-2xl border border-warm-border bg-warm-surface shadow-md">
           {/* Collapsible header */}
           <button
             onClick={() => setFormOpen((v) => !v)}
-            className="flex w-full items-center justify-between px-6 py-4 transition-colors hover:bg-realm-surface2/45 font-space"
+            className="flex w-full items-center justify-between px-6 py-4 transition-colors hover:bg-warm-surface2/45 font-space"
           >
-            <span className="flex items-center gap-2 text-sm font-bold text-realm-cream">
-              <IconBook size={18} className="text-realm-gold" />
-              Record in The Tome
+            <span className="flex items-center gap-2 text-sm font-bold text-warm-cream">
+              <IconBook size={18} className="text-warm-amber" />
+              Record a Note
             </span>
-            <IconChevronDown size={16} className={`text-realm-muted transition-transform duration-200 ${formOpen ? "rotate-180" : ""}`} />
+            <IconChevronDown size={16} className={`text-warm-textMuted transition-transform duration-200 ${formOpen ? "rotate-180" : ""}`} />
           </button>
 
           {formOpen && (
-            <div className="border-t border-realm-border px-6 pb-6 pt-4 space-y-4">
+            <div className="border-t border-warm-border px-6 pb-6 pt-4 space-y-4">
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                placeholder="What sits upon your mind? An idea, a blocker, a scroll from your journey..."
+                placeholder="What is on your mind? An idea, a blocker, or a reflection from your session..."
                 rows={3}
-                className="w-full resize-none rounded-xl border border-realm-border bg-realm-surface2/60 px-4 py-3 text-sm text-realm-cream placeholder-realm-muted outline-none transition-all focus:border-realm-gold font-lora italic"
+                className="w-full resize-none rounded-xl border border-warm-border bg-warm-surface2/60 px-4 py-3 text-sm text-warm-cream placeholder-warm-textMuted outline-none transition-all focus:border-warm-amber font-quick"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && e.ctrlKey) handleAddNote();
                 }}
@@ -302,7 +302,7 @@ export default function MemoryPage() {
                         className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all ${
                           selectedTag === tag
                             ? `${m.bg} ${m.border} ${m.color} shadow-sm`
-                            : "border-realm-border bg-realm-surface2 text-realm-muted hover:border-realm-gold/20 hover:text-realm-cream"
+                            : "border-warm-border bg-warm-surface2 text-warm-textMuted hover:border-warm-amber/20 hover:text-warm-cream"
                         }`}
                         style={
                           selectedTag === tag
@@ -320,12 +320,12 @@ export default function MemoryPage() {
                 <button
                   onClick={handleAddNote}
                   disabled={!noteText.trim()}
-                  className="rounded-xl bg-gradient-to-r from-realm-gold to-orange-400 px-5 py-2.5 text-xs font-bold text-realm-bg shadow-md hover:scale-102 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-gradient-to-r from-warm-amber to-orange-400 px-5 py-2.5 text-xs font-bold text-warm-bg shadow-md hover:scale-102 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Record Recollection
+                  Save Note
                 </button>
               </div>
-              <p className="text-[10px] text-realm-muted font-space">Press Ctrl+Enter to save quickly</p>
+              <p className="text-[10px] text-warm-textMuted font-space">Press Ctrl+Enter to save quickly</p>
             </div>
           )}
         </div>
@@ -333,13 +333,13 @@ export default function MemoryPage() {
         {/* ── Search + Filter ── */}
         <div className="flex flex-col gap-3 sm:flex-row font-space">
           <div className="relative flex-1">
-            <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-realm-muted" />
+            <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-warm-textMuted" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search all memories in the Tome…"
-              className="w-full rounded-xl border border-realm-border bg-realm-surface py-3 pl-10 pr-4 text-sm text-realm-cream placeholder-realm-muted outline-none transition-all focus:border-realm-gold"
+              placeholder="Search all focus notes…"
+              className="w-full rounded-xl border border-warm-border bg-warm-surface py-3 pl-10 pr-4 text-sm text-warm-cream placeholder-warm-textMuted outline-none transition-all focus:border-warm-amber"
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -347,8 +347,8 @@ export default function MemoryPage() {
               onClick={() => setFilterTag("all")}
               className={`rounded-full px-4 py-2 text-xs font-bold transition-all ${
                 filterTag === "all"
-                  ? "bg-realm-surface2 border border-realm-gold text-realm-gold shadow-sm"
-                  : "border border-realm-border bg-realm-surface text-realm-muted hover:text-realm-cream"
+                  ? "bg-warm-surface2 border border-warm-amber text-warm-amber shadow-sm"
+                  : "border border-warm-border bg-warm-surface text-warm-textMuted hover:text-warm-cream"
               }`}
             >
               All
@@ -362,22 +362,22 @@ export default function MemoryPage() {
                   className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition-all ${
                     filterTag === tag
                       ? `${m.bg} ${m.border} ${m.color}`
-                      : "border-realm-border bg-realm-surface text-realm-muted hover:text-realm-cream"
+                      : "border-warm-border bg-warm-surface text-warm-textMuted hover:text-warm-cream"
                   }`}
                 >
-                  {m.icon} <span>{m.label.split(" ")[0]}</span>
+                  {m.icon} <span>{m.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* ── From Quests Section (Battle Campaign Scrolls) ── */}
+        {/* ── From Tasks Section (Task Session Notes) ── */}
         {filteredTaskNotes.length > 0 && (
           <div className="space-y-4">
-            <h2 className="flex items-center gap-2 font-cinzel text-xs text-realm-muted uppercase tracking-[0.15em]">
-              <span>⚔️</span> Battle Campaign Scrolls
-              <span className="rounded-full border border-realm-border bg-realm-surface2 px-2 py-0.5 text-xs text-realm-cream font-mono">
+            <h2 className="flex items-center gap-2 font-space font-bold text-xs text-warm-textMuted uppercase tracking-[0.15em]">
+              <span>📋</span> Task Session Notes
+              <span className="rounded-full border border-warm-border bg-warm-surface2 px-2 py-0.5 text-xs text-warm-cream font-mono">
                 {filteredTaskNotes.length}
               </span>
             </h2>
@@ -385,19 +385,19 @@ export default function MemoryPage() {
               {filteredTaskNotes.map((task) => (
                 <div
                   key={task.id}
-                  className="note-in group relative overflow-hidden rounded-2xl border border-realm-border bg-realm-surface p-5 transition-all hover:border-realm-purple/30 hover:scale-[1.01]"
+                  className="note-in group relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface p-5 transition-all hover:border-warm-purple/30 hover:scale-[1.01]"
                 >
                   {/* Left accent border */}
-                  <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-realm-purple to-realm-teal" />
+                  <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-warm-purple to-warm-teal" />
                   <div className="pl-1.5">
                     <div className="mb-2.5 flex items-start justify-between gap-2">
-                      <span className="truncate text-xs font-bold text-realm-purple font-space">{task.title}</span>
-                      <span className="shrink-0 rounded-full border border-realm-purple/20 bg-realm-purple/5 px-2 py-0.5 text-[10px] font-bold text-realm-purple font-space">
-                        Campaign Note
+                      <span className="truncate text-xs font-bold text-warm-purple font-space">{task.title}</span>
+                      <span className="shrink-0 rounded-full border border-warm-purple/20 bg-warm-purple/5 px-2 py-0.5 text-[10px] font-bold text-warm-purple font-space">
+                        Task Note
                       </span>
                     </div>
-                    <p className="text-sm text-realm-cream leading-relaxed font-lora italic">{task.memoryNote}</p>
-                    <p className="mt-3 text-[10px] text-realm-muted font-space">
+                    <p className="text-sm text-warm-cream leading-relaxed font-quick">{task.memoryNote}</p>
+                    <p className="mt-3 text-[10px] text-warm-textMuted font-space">
                       {task.completedAt ? relativeDate(task.completedAt) : relativeDate(task.createdAt)}
                     </p>
                   </div>
@@ -407,31 +407,31 @@ export default function MemoryPage() {
           </div>
         )}
 
-        {/* ── Standalone Notes (Unbound Recollections) ── */}
+        {/* ── Standalone Notes (General Notes) ── */}
         <div className="space-y-4">
-          <h2 className="flex items-center gap-2 font-cinzel text-xs text-realm-muted uppercase tracking-[0.15em]">
-            <span>📜</span> Unbound Recollections
-            <span className="rounded-full border border-realm-border bg-realm-surface2 px-2 py-0.5 text-xs text-realm-cream font-mono">
+          <h2 className="flex items-center gap-2 font-space font-bold text-xs text-warm-textMuted uppercase tracking-[0.15em]">
+            <span>📝</span> General Notes
+            <span className="rounded-full border border-warm-border bg-warm-surface2 px-2 py-0.5 text-xs text-warm-cream font-mono">
               {filteredNotes.length}
             </span>
           </h2>
 
           {filteredNotes.length === 0 ? (
-            <div className="flex flex-col items-center gap-5 rounded-2xl border border-realm-border bg-realm-surface py-20 text-center">
+            <div className="flex flex-col items-center gap-5 rounded-2xl border border-warm-border bg-warm-surface py-20 text-center">
               <div className="relative">
-                <div className="absolute -inset-4 rounded-full bg-realm-purple/5 blur-xl pointer-events-none" />
-                <IconBookmark size={64} className="text-realm-muted/50 animate-bounce" />
+                <div className="absolute -inset-4 rounded-full bg-warm-purple/5 blur-xl pointer-events-none" />
+                <IconBookmark size={64} className="text-warm-textMuted/50 animate-bounce" />
               </div>
               <div className="font-space">
-                <p className="font-bold text-realm-cream">
+                <p className="font-bold text-warm-cream">
                   {notes.length === 0
-                    ? "The Tome lies open. Record your first unburdening, traveler."
-                    : "No recollections match your filter."}
+                    ? "Focus Notes is empty. Record your first thought above."
+                    : "No notes match your filter."}
                 </p>
-                <p className="mt-1 text-xs text-realm-muted font-lora italic">
+                <p className="mt-1 text-xs text-warm-textMuted font-quick italic">
                   {notes.length === 0
                     ? "Use the form above to record your thoughts and clear the path to focus."
-                    : "Try selecting a different filter or clearing your search scroll."}
+                    : "Try selecting a different filter or clearing your search."}
                 </p>
               </div>
             </div>
@@ -442,7 +442,7 @@ export default function MemoryPage() {
                 return (
                   <div
                     key={note.id}
-                    className="note-in group relative overflow-hidden rounded-2xl border border-realm-border bg-realm-surface p-5 transition-all hover:border-realm-gold/20 hover:scale-[1.01]"
+                    className="note-in group relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface p-5 transition-all hover:border-warm-amber/20 hover:scale-[1.01]"
                   >
                     {/* Left colored accent border */}
                     <div
@@ -461,18 +461,18 @@ export default function MemoryPage() {
                         <span
                           className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold font-space ${m.bg} ${m.border} ${m.color}`}
                         >
-                          {m.icon} <span>{m.label.split(" ")[0]}</span>
+                          {m.icon} <span>{m.label}</span>
                         </span>
                         <button
                           onClick={() => handleDeleteNote(note.id)}
-                          className="shrink-0 rounded-lg p-1 text-realm-muted opacity-0 transition-all hover:bg-realm-surface2 hover:text-realm-crimson group-hover:opacity-100"
+                          className="shrink-0 rounded-lg p-1 text-warm-textMuted opacity-0 transition-all hover:bg-warm-surface2 hover:text-rose-400 group-hover:opacity-100"
                           title="Erase Note"
                         >
                           <IconTrash size={14} />
                         </button>
                       </div>
-                      <p className="mt-3 text-sm leading-relaxed text-realm-cream font-lora italic">{note.text}</p>
-                      <p className="mt-3.5 text-[10px] text-realm-muted font-space">{relativeDate(note.createdAt)}</p>
+                      <p className="mt-3 text-sm leading-relaxed text-warm-cream font-quick">{note.text}</p>
+                      <p className="mt-3.5 text-[10px] text-warm-textMuted font-space">{relativeDate(note.createdAt)}</p>
                     </div>
                   </div>
                 );

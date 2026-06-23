@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   type MasteryPath,
@@ -17,6 +17,11 @@ import {
 export function usePaths() {
   const [paths, setPaths] = useState<MasteryPath[]>([]);
   const [loaded, setLoaded] = useState(false);
+
+  const pathsRef = useRef(paths);
+  useEffect(() => {
+    pathsRef.current = paths;
+  }, [paths]);
 
   // Fetch paths from Supabase
   useEffect(() => {
@@ -36,10 +41,12 @@ export function usePaths() {
 
         if (pathsError) throw pathsError;
 
-        const { data: dbNodes } = await supabase
+        const { data: dbNodes, error: nodesError } = await supabase
           .from("path_nodes")
           .select("*")
           .eq("user_id", user.id);
+
+        if (nodesError) throw nodesError;
 
         if (active && dbPaths) {
           const mappedPaths: MasteryPath[] = dbPaths.map((p: any) => {
@@ -72,7 +79,7 @@ export function usePaths() {
           setPaths(mappedPaths);
         }
       } catch (err) {
-        console.warn("Failed to load paths from Supabase:", err);
+        console.error("Failed to load paths from Supabase:", err);
       } finally {
         if (active) setLoaded(true);
       }
@@ -91,7 +98,7 @@ export function usePaths() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      await supabase.from("paths").upsert({
+      const { error: pathError } = await supabase.from("paths").upsert({
         id: path.id,
         user_id: user.id,
         title: path.title,
@@ -99,6 +106,11 @@ export function usePaths() {
         category: path.category,
         created_at: path.createdAt ? new Date(path.createdAt).toISOString() : new Date().toISOString(),
       });
+
+      if (pathError) {
+        console.error("Failed to upsert path in DB:", pathError);
+        return;
+      }
 
       if (path.nodes && path.nodes.length > 0) {
         const nodePayloads = path.nodes.map((node, idx) => ({
@@ -112,10 +124,19 @@ export function usePaths() {
           parent_id: idx > 0 ? path.nodes[idx - 1].id : null,
           sort_order: idx,
         }));
-        await supabase.from("path_nodes").upsert(nodePayloads);
+
+        // Upsert sequentially to prevent foreign key constraint race conditions in the DB
+        for (const payload of nodePayloads) {
+          const { error: nodeError } = await supabase
+            .from("path_nodes")
+            .upsert(payload);
+          if (nodeError) {
+            console.error("Failed to upsert path node in DB:", payload.label, nodeError);
+          }
+        }
       }
     } catch (err) {
-      console.warn("Failed to save path to Supabase:", err);
+      console.error("Failed to save path to Supabase:", err);
     }
   }, []);
 
@@ -168,37 +189,38 @@ export function usePaths() {
 
   const unlockNode = useCallback(
     (pathId: string, nodeId: string): number => {
+      const currentPaths = pathsRef.current;
+      const path = currentPaths.find((p) => p.id === pathId);
+      if (!path) return 0;
+
       let xpEarned = 0;
-      let targetPath: MasteryPath | null = null;
+      const nodesList = path.nodes || [];
+      const updatedNodes = nodesList.map((n) => {
+        if (n.id === nodeId && n.status === "available") {
+          xpEarned = n.xp;
+          return { ...n, status: "done" as NodeStatus };
+        }
+        return n;
+      });
 
-      setPaths((prev) =>
-        prev.map((p) => {
-          if (p.id !== pathId) return p;
-          const updatedNodes = p.nodes.map((n) => {
-            if (n.id === nodeId && n.status === "available") {
-              xpEarned = n.xp;
-              return { ...n, status: "done" as NodeStatus };
-            }
-            return n;
-          });
-          // Unlock children of the just-completed node
-          const doneNode = updatedNodes.find((n) => n.id === nodeId);
-          if (doneNode) {
-            doneNode.children.forEach((childId) => {
-              const child = updatedNodes.find((n) => n.id === childId);
-              if (child && child.status === "locked") {
-                child.status = "available";
-              }
-            });
+      const doneNode = updatedNodes.find((n) => n.id === nodeId);
+      if (doneNode) {
+        doneNode.children.forEach((childId) => {
+          const child = updatedNodes.find((n) => n.id === childId);
+          if (child && child.status === "locked") {
+            child.status = "available";
           }
-          targetPath = { ...p, nodes: [...updatedNodes] };
-          return targetPath;
-        })
-      );
-
-      if (targetPath) {
-        void savePathToDb(targetPath);
+        });
       }
+
+      const targetPath = { ...path, nodes: updatedNodes };
+
+      // Update state synchronously
+      setPaths((prev) => prev.map((p) => (p.id === pathId ? targetPath : p)));
+
+      // Save to DB immediately
+      void savePathToDb(targetPath);
+
       return xpEarned;
     },
     [savePathToDb]
@@ -211,9 +233,12 @@ export function usePaths() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        await supabase.from("paths").delete().eq("id", pathId).eq("user_id", user.id);
+        const { error } = await supabase.from("paths").delete().eq("id", pathId).eq("user_id", user.id);
+        if (error) {
+          console.error("Failed to delete path from DB:", error);
+        }
       } catch (err) {
-        console.warn("Failed to delete path from Supabase:", err);
+        console.error("Failed to delete path from Supabase:", err);
       }
     })();
   }, []);

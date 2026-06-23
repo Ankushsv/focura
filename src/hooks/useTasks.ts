@@ -83,6 +83,12 @@ export function useTasks() {
                 difficultyBefore: t.difficulty_before || undefined,
                 difficultyAfter: t.difficulty_after || undefined,
                 memoryNote: t.memory_note || undefined,
+                // Deadline Pulse
+                due_date: t.due_date || null,
+                // Time Cost System
+                estimated_minutes: t.estimated_minutes ?? null,
+                calibrated_estimate: t.calibrated_estimate ?? null,
+                actual_minutes_history: t.actual_minutes_history || [],
               };
             });
             setTasks(mappedTasks);
@@ -140,6 +146,12 @@ export function useTasks() {
         difficulty_after: task.difficultyAfter || null,
         completed_at: task.completedAt ? new Date(task.completedAt).toISOString() : null,
         created_at: task.createdAt ? new Date(task.createdAt).toISOString() : new Date().toISOString(),
+        // Deadline Pulse
+        due_date: task.due_date || null,
+        // Time Cost System
+        estimated_minutes: task.estimated_minutes ?? null,
+        calibrated_estimate: task.calibrated_estimate ?? null,
+        actual_minutes_history: task.actual_minutes_history || [],
       };
 
       // Safe retry for columns
@@ -202,7 +214,7 @@ export function useTasks() {
   );
 
   const addTask = useCallback(
-    (input: { title: string; priority: Priority; energy: Energy; tag?: string }) => {
+    (input: { title: string; priority: Priority; energy: Energy; tag?: string; due_date?: string | null; estimated_minutes?: number | null }) => {
       const task: Task = {
         id: uid(),
         title: input.title,
@@ -214,6 +226,9 @@ export function useTasks() {
         isBoss: false,
         subtasks: [],
         createdAt: Date.now(),
+        due_date: input.due_date || null,
+        estimated_minutes: input.estimated_minutes ?? null,
+        actual_minutes_history: [],
       };
       setTasks((prev) => {
         const next = [task, ...prev];
@@ -221,6 +236,38 @@ export function useTasks() {
         return next;
       });
       return task;
+    },
+    [saveTaskToDb]
+  );
+
+  const setDueDate = useCallback(
+    (taskId: string, due_date: string | null) => patchTask(taskId, { due_date }),
+    [patchTask]
+  );
+
+  /**
+   * Called after a focus session ends on this task.
+   * Appends actual duration to history and recomputes calibrated_estimate.
+   */
+  const updateTimeCalibration = useCallback(
+    (taskId: string, actualMinutes: number) => {
+      setTasks((prev) => {
+        const next = prev.map((t) => {
+          if (t.id !== taskId) return t;
+          const history = [...(t.actual_minutes_history || []), actualMinutes];
+          // Keep last 10 entries for rolling average
+          const trimmed = history.slice(-10);
+          const avg = Math.round(trimmed.reduce((sum, v) => sum + v, 0) / trimmed.length);
+          const updated: Task = {
+            ...t,
+            actual_minutes_history: trimmed,
+            calibrated_estimate: trimmed.length >= 2 ? avg : (t.estimated_minutes ?? actualMinutes),
+          };
+          void saveTaskToDb(updated);
+          return updated;
+        });
+        return next;
+      });
     },
     [saveTaskToDb]
   );
@@ -271,5 +318,7 @@ export function useTasks() {
     setMemoryNote,
     rateDifficulty,
     rateDifficultyAfter,
+    setDueDate,
+    updateTimeCalibration,
   };
 }

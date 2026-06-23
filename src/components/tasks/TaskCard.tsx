@@ -1,14 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { ENERGY_LABELS, PRIORITY_STYLES, type Task } from "@/lib/tasks/types";
-import { IconSword, IconBook, IconFlame, IconSkull, IconShield, IconBrain } from "@tabler/icons-react";
+import { IconFlame, IconBook, IconSkull, IconShield, IconBrain, IconListDetails, IconClock } from "@tabler/icons-react";
+
+// ─── Deadline State ───────────────────────────────────────────────────────────
+
+type DeadlineState =
+  | { state: "overdue"; days: number }
+  | { state: "today"; hours: number; minutes: number }
+  | { state: "imminent"; days: number }
+  | { state: "soon"; days: number }
+  | { state: "upcoming"; days: number; dateLabel: string }
+  | { state: "distant"; dateLabel: string }
+  | null;
+
+function getDeadlineState(dueDate: string | null | undefined): DeadlineState {
+  if (!dueDate) return null;
+  const now = new Date();
+  const due = new Date(dueDate);
+  const diffMs = due.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  const dateLabel = due.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+  if (diffMs < 0 && diffDays < 0) return { state: "overdue", days: Math.abs(diffDays) };
+  if (diffDays <= 0) return { state: "today", hours: Math.max(0, diffHours), minutes: Math.max(0, diffMins) };
+  if (diffDays <= 2) return { state: "imminent", days: diffDays };
+  if (diffDays <= 6) return { state: "soon", days: diffDays };
+  if (diffDays <= 14) return { state: "upcoming", days: diffDays, dateLabel };
+  return { state: "distant", dateLabel };
+}
 
 type Props = {
   task: Task;
   hero?: boolean;
   showDifficulty?: boolean;
+  due_date?: string | null;
   onComplete: (task: Task) => void;
   onToggleSubtask: (task: Task, subId: string) => void;
   onBreakdown: (task: Task) => void;
@@ -21,6 +52,7 @@ export default function TaskCard({
   task,
   hero = false,
   showDifficulty = false,
+  due_date,
   onComplete,
   onToggleSubtask,
   onBreakdown,
@@ -29,6 +61,9 @@ export default function TaskCard({
   onRate,
 }: Props) {
   const [showMemory, setShowMemory] = useState(false);
+  const [deadline, setDeadline] = useState<DeadlineState>(() => getDeadlineState(due_date));
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const style = PRIORITY_STYLES[task.priority];
 
   const totalHp = task.subtasks.reduce((sum, s) => sum + s.xp, 0);
@@ -36,54 +71,270 @@ export default function TaskCard({
   const hpPct = totalHp > 0 ? Math.round((remainingHp / totalHp) * 100) : 0;
   const bossDefeated = task.isBoss && totalHp > 0 && remainingHp === 0;
 
+  // Live countdown for "today" — updates every minute
+  useEffect(() => {
+    setDeadline(getDeadlineState(due_date));
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (due_date) {
+      intervalRef.current = setInterval(() => {
+        setDeadline(getDeadlineState(due_date));
+      }, 60_000);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [due_date]);
+
+  // ─── Deadline border/container classes ──────────────────────────────────────
+  const getContainerClasses = () => {
+    if (!deadline || task.done) return "";
+    switch (deadline.state) {
+      case "today":
+        return "border-[#f87171] shadow-[0_0_16px_rgba(248,113,113,0.25),inset_0_0_8px_rgba(248,113,113,0.05)]";
+      case "soon":
+        return "border-l-[#f0a868] shadow-[2px_0_12px_rgba(240,168,104,0.15)]";
+      default:
+        return "";
+    }
+  };
+
+  // Time estimate display
+  const timeEstimate = task.calibrated_estimate ?? task.estimated_minutes;
+  const showUnderestimate =
+    task.calibrated_estimate != null &&
+    task.estimated_minutes != null &&
+    (task.actual_minutes_history?.length ?? 0) >= 2 &&
+    task.calibrated_estimate > task.estimated_minutes * 1.2;
+  const underestimatePct = showUnderestimate
+    ? Math.round(((task.calibrated_estimate! - task.estimated_minutes!) / task.estimated_minutes!) * 100)
+    : 0;
+
   return (
-    <div
-      className={`glass border-l-4 ${style.border} p-4 transition ${
-        task.done ? "opacity-50" : ""
-      } ${hero ? "ring-1 ring-realm-gold/40 shadow-[0_0_20px_rgba(240,168,104,0.1)]" : ""}`}
-    >
+    <div className="relative">
+      {/* Fog overlay for overdue tasks */}
+      {deadline?.state === "overdue" && !task.done && (
+        <div
+          className="absolute inset-0 z-10 rounded-2xl pointer-events-none"
+          style={{
+            background: "rgba(245,239,232,0.025)",
+            backdropFilter: "blur(0.5px)",
+          }}
+        />
+      )}
+
+      {/* Imminent pulsing border wrapper */}
+      {deadline?.state === "imminent" && !task.done ? (
+        <motion.div
+          animate={{ borderColor: ["#f0a868", "#f87171", "#f0a868"] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="glass border-l-4 p-0 rounded-2xl overflow-hidden"
+          style={{ borderColor: "#f0a868" }}
+        >
+          <div className={`glass border-l-4 ${style.border} p-4 transition ${task.done ? "opacity-50" : ""} ${hero ? "ring-1 ring-warm-amber/40 shadow-[0_0_20px_rgba(240,168,104,0.05)]" : ""} ${getContainerClasses()}`}>
+            <CardInner
+              task={task}
+              style={style}
+              hero={hero}
+              showDifficulty={showDifficulty}
+              totalHp={totalHp}
+              remainingHp={remainingHp}
+              hpPct={hpPct}
+              bossDefeated={bossDefeated}
+              deadline={deadline}
+              timeEstimate={timeEstimate}
+              showUnderestimate={showUnderestimate}
+              underestimatePct={underestimatePct}
+              showMemory={showMemory}
+              setShowMemory={setShowMemory}
+              onComplete={onComplete}
+              onToggleSubtask={onToggleSubtask}
+              onBreakdown={onBreakdown}
+              onStuck={onStuck}
+              onMemory={onMemory}
+              onRate={onRate}
+            />
+          </div>
+        </motion.div>
+      ) : (
+        <div
+          className={`glass border-l-4 ${style.border} p-4 transition ${task.done ? "opacity-50" : ""} ${hero ? "ring-1 ring-warm-amber/40 shadow-[0_0_20px_rgba(240,168,104,0.05)]" : ""} ${getContainerClasses()}`}
+        >
+          <CardInner
+            task={task}
+            style={style}
+            hero={hero}
+            showDifficulty={showDifficulty}
+            totalHp={totalHp}
+            remainingHp={remainingHp}
+            hpPct={hpPct}
+            bossDefeated={bossDefeated}
+            deadline={deadline}
+            timeEstimate={timeEstimate}
+            showUnderestimate={showUnderestimate}
+            underestimatePct={underestimatePct}
+            showMemory={showMemory}
+            setShowMemory={setShowMemory}
+            onComplete={onComplete}
+            onToggleSubtask={onToggleSubtask}
+            onBreakdown={onBreakdown}
+            onStuck={onStuck}
+            onMemory={onMemory}
+            onRate={onRate}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Inner card content (shared between pulsing / normal) ─────────────────────
+function CardInner({
+  task,
+  style,
+  hero,
+  showDifficulty,
+  totalHp,
+  remainingHp,
+  hpPct,
+  bossDefeated,
+  deadline,
+  timeEstimate,
+  showUnderestimate,
+  underestimatePct,
+  showMemory,
+  setShowMemory,
+  onComplete,
+  onToggleSubtask,
+  onBreakdown,
+  onStuck,
+  onMemory,
+  onRate,
+}: {
+  task: Task;
+  style: { border: string; label: string; text: string };
+  hero: boolean;
+  showDifficulty: boolean;
+  totalHp: number;
+  remainingHp: number;
+  hpPct: number;
+  bossDefeated: boolean;
+  deadline: DeadlineState;
+  timeEstimate: number | null | undefined;
+  showUnderestimate: boolean;
+  underestimatePct: number;
+  showMemory: boolean;
+  setShowMemory: (v: boolean | ((prev: boolean) => boolean)) => void;
+  onComplete: (task: Task) => void;
+  onToggleSubtask: (task: Task, subId: string) => void;
+  onBreakdown: (task: Task) => void;
+  onStuck: (task: Task) => void;
+  onMemory: (task: Task, note: string) => void;
+  onRate: (task: Task, rating: number) => void;
+}) {
+  return (
+    <>
       <div className="flex items-start gap-3">
         <button
           aria-label="Complete task"
           onClick={() => !task.done && onComplete(task)}
           className={`mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 transition ${
             task.done
-              ? "border-realm-teal bg-realm-teal text-realm-bg flex items-center justify-center font-bold text-xs"
-              : "border-realm-muted hover:border-realm-gold hover:bg-realm-gold/20"
+              ? "border-warm-teal bg-warm-teal text-warm-bg flex items-center justify-center font-bold text-xs"
+              : "border-warm-border hover:border-warm-amber hover:bg-warm-amber/20"
           }`}
         >
           {task.done && "✓"}
         </button>
-        
+
         <div className="min-w-0 flex-1">
-          <p className={`font-quick font-bold leading-snug ${task.done ? "line-through text-realm-muted" : "text-realm-text"}`}>
-            {task.isBoss && <IconSkull className="inline h-4 w-4 mr-1.5 text-realm-crimson animate-pulse" />}
+          <p
+            className={`font-quick font-bold leading-snug ${
+              task.done
+                ? "line-through text-warm-textMuted"
+                : deadline?.state === "overdue"
+                ? "text-warm-textMuted"
+                : "text-warm-text"
+            }`}
+          >
+            {task.isBoss && <IconFlame className="inline h-4 w-4 mr-1.5 text-priority-critical animate-pulse" />}
             {task.title}
           </p>
+
+          {/* Deadline badge */}
+          {deadline && !task.done && (
+            <div className="mt-1 flex items-center gap-1.5">
+              {deadline.state === "today" && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold font-mono text-[#f87171]">
+                  <span className="animate-pulse">●</span>
+                  Due today · {deadline.hours}h {deadline.minutes}m remaining
+                </span>
+              )}
+              {deadline.state === "overdue" && (
+                <span className="text-[11px] font-quick text-[#f0a868]/80">
+                  {deadline.days} day{deadline.days !== 1 ? "s" : ""} overdue — the battle was lost, but not the war
+                </span>
+              )}
+              {deadline.state === "imminent" && (
+                <span className="text-[11px] font-semibold font-quick text-[#f0a868]">
+                  ⚠ Due in {deadline.days} day{deadline.days !== 1 ? "s" : ""}
+                </span>
+              )}
+              {deadline.state === "soon" && (
+                <span className="text-[11px] font-quick text-[#f0a868]/80">
+                  Due in {deadline.days} days
+                </span>
+              )}
+              {(deadline.state === "upcoming" || deadline.state === "distant") && (
+                <span className="text-[11px] font-quick" style={{ color: "rgba(245,239,232,0.25)" }}>
+                  Due {deadline.state === "upcoming" ? deadline.dateLabel : deadline.dateLabel}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Time estimate badge */}
+          {timeEstimate != null && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="flex items-center gap-1 text-[10px] font-mono text-warm-textMuted">
+                <IconClock className="h-3 w-3" />
+                ~{timeEstimate} min
+              </span>
+              {showUnderestimate && (
+                <span className="text-[10px] font-quick text-[#f0a868]/70 italic">
+                  (you usually underestimate by {underestimatePct}%)
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             <span className={`font-quick font-bold uppercase tracking-wider text-[10px] ${style.text}`}>{style.label}</span>
-            <span className="rounded-full bg-realm-gold-dim px-2.5 py-0.5 font-mono font-bold text-realm-gold border border-realm-gold/10">
-              +{task.xp} LP
+            <span className="rounded-full bg-warm-amber/15 px-2.5 py-0.5 font-mono font-bold text-warm-amber border border-warm-amber/10">
+              +{task.xp} XP
             </span>
-            <span className="text-realm-muted font-quick font-medium">{ENERGY_LABELS[task.energy]} energy</span>
-            {task.tag && <span className="rounded-full bg-realm-surface2 border border-realm-border px-2 py-0.5 text-realm-muted font-quick font-bold text-[10px]">#{task.tag}</span>}
+            <span className="text-warm-textMuted font-quick font-medium">{ENERGY_LABELS[task.energy]} energy</span>
+            {task.tag && (
+              <span className="rounded-full bg-warm-surface2 border border-warm-border px-2 py-0.5 text-warm-textMuted font-quick font-bold text-[10px]">
+                #{task.tag}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       {task.isBoss && totalHp > 0 && !task.done && (
-        <div className="mt-4 bg-realm-surface2 border border-realm-border rounded-xl p-3">
-          <div className="flex justify-between text-xs font-quick font-bold text-realm-muted mb-1.5">
-            <span className="flex items-center gap-1.5 text-realm-crimson uppercase tracking-wider text-[10px]">
-              <IconSword className="h-3.5 w-3.5" /> Dark Lord HP
+        <div className="mt-4 bg-warm-surface2 border border-warm-border rounded-xl p-3">
+          <div className="flex justify-between text-xs font-quick font-bold text-warm-textMuted mb-1.5">
+            <span className="flex items-center gap-1.5 text-priority-critical uppercase tracking-wider text-[10px]">
+              <IconFlame className="h-3.5 w-3.5" /> Steps Remaining
             </span>
-            <span className="font-mono text-realm-crimson">
+            <span className="font-mono text-priority-critical">
               {remainingHp}/{totalHp}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-realm-bg border border-realm-border">
+          <div className="h-2 overflow-hidden rounded-full bg-warm-bg border border-warm-border">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-realm-crimson to-realm-gold transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-priority-critical to-warm-amber transition-all duration-500"
               style={{ width: `${hpPct}%` }}
             />
           </div>
@@ -91,17 +342,17 @@ export default function TaskCard({
       )}
 
       {task.subtasks.length > 0 && !task.done && (
-        <ul className="mt-4 space-y-2 border-t border-realm-border/50 pt-3">
+        <ul className="mt-4 space-y-2 border-t border-warm-border/50 pt-3">
           {task.subtasks.map((s) => (
             <li key={s.id} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={s.done}
                 onChange={() => onToggleSubtask(task, s.id)}
-                className="h-4 w-4 rounded border-realm-border bg-realm-surface text-realm-gold focus:ring-realm-gold"
+                className="h-4 w-4 rounded border-warm-border bg-warm-surface text-warm-amber focus:ring-warm-amber"
               />
-              <span className={`font-quick ${s.done ? "text-realm-muted line-through" : "text-realm-text"}`}>{s.text}</span>
-              <span className="ml-auto font-mono text-xs text-realm-gold">+{s.xp} LP</span>
+              <span className={`font-quick ${s.done ? "text-warm-textMuted line-through" : "text-warm-text"}`}>{s.text}</span>
+              <span className="ml-auto font-mono text-xs text-warm-amber">+{s.xp} XP</span>
             </li>
           ))}
         </ul>
@@ -110,21 +361,21 @@ export default function TaskCard({
       {bossDefeated && (
         <button
           onClick={() => onComplete(task)}
-          className="mt-4 w-full rounded-xl bg-realm-crimson py-2.5 text-sm font-quick font-bold text-realm-bg hover:bg-realm-crimson/90 transition shadow-lg shadow-realm-crimson/15 flex items-center justify-center gap-1.5"
+          className="mt-4 w-full rounded-xl bg-priority-critical py-2.5 text-sm font-quick font-bold text-warm-bg hover:bg-priority-critical/90 transition shadow-lg shadow-priority-critical/15 flex items-center justify-center gap-1.5"
         >
-          <IconSword className="h-4 w-4" /> Victory over the Dark Lord!
+          <IconFlame className="h-4 w-4" /> Complete Milestone Task
         </button>
       )}
 
       {showDifficulty && task.difficultyBefore === undefined && !task.done && (
-        <div className="mt-4 bg-realm-surface2 border border-realm-border rounded-xl p-3">
-          <p className="text-xs font-quick font-bold text-realm-muted">How fierce is this quest? (1–10)</p>
+        <div className="mt-4 bg-warm-surface2 border border-warm-border rounded-xl p-3">
+          <p className="text-xs font-quick font-bold text-warm-textMuted">How complex is this task? (1–10)</p>
           <div className="mt-2 flex flex-wrap gap-1">
             {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
               <button
                 key={n}
                 onClick={() => onRate(task, n)}
-                className="h-7 w-7 rounded-lg border border-realm-border text-xs font-mono text-realm-text bg-realm-surface hover:border-realm-gold hover:bg-realm-gold-dim transition duration-200"
+                className="h-7 w-7 rounded-lg border border-warm-border text-xs font-mono text-warm-text bg-warm-surface hover:border-warm-amber hover:bg-warm-amber/15 transition duration-200"
               >
                 {n}
               </button>
@@ -134,38 +385,38 @@ export default function TaskCard({
       )}
 
       {task.difficultyBefore !== undefined && !task.done && (
-        <p className="mt-3 text-xs font-lora italic text-realm-muted">
-          ⚔️ Marked as a severity of {task.difficultyBefore}/10 before battle.
+        <p className="mt-3 text-xs font-quick italic text-warm-textMuted">
+          ⚡ Estimated complexity: {task.difficultyBefore}/10.
         </p>
       )}
 
       {!task.done && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-realm-border/50 pt-3">
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-warm-border/50 pt-3">
           {task.subtasks.length === 0 && (
             <button
               onClick={() => onBreakdown(task)}
-              className="rounded-lg border border-realm-border bg-realm-surface2 px-3 py-1.5 text-xs font-quick font-bold text-realm-text hover:bg-realm-surface hover:border-realm-gold/30 transition flex items-center gap-1"
+              className="rounded-lg border border-warm-border bg-warm-surface2 px-3 py-1.5 text-xs font-quick font-bold text-warm-text hover:bg-warm-surface hover:border-warm-amber/30 transition flex items-center gap-1"
             >
-              <IconBook className="h-3.5 w-3.5 text-realm-gold" /> The Sage breaks this down
+              <IconListDetails className="h-3.5 w-3.5 text-warm-amber" /> AI Breakdown
             </button>
           )}
           <button
             onClick={() => onStuck(task)}
-            className="rounded-lg border border-realm-border bg-realm-surface2 px-3 py-1.5 text-xs font-quick font-bold text-realm-text hover:bg-realm-surface hover:border-realm-gold/30 transition flex items-center gap-1"
+            className="rounded-lg border border-warm-border bg-warm-surface2 px-3 py-1.5 text-xs font-quick font-bold text-warm-text hover:bg-warm-surface hover:border-warm-amber/30 transition flex items-center gap-1"
           >
-            <IconShield className="h-3.5 w-3.5 text-realm-crimson" /> Sound the retreat
+            <IconShield className="h-3.5 w-3.5 text-priority-critical" /> Rescue Me
           </button>
           <button
             onClick={() => setShowMemory((v) => !v)}
-            className="rounded-lg border border-realm-border bg-realm-surface2 px-3 py-1.5 text-xs font-quick font-bold text-realm-text hover:bg-realm-surface hover:border-realm-gold/30 transition flex items-center gap-1"
+            className="rounded-lg border border-warm-border bg-warm-surface2 px-3 py-1.5 text-xs font-quick font-bold text-warm-text hover:bg-warm-surface hover:border-warm-amber/30 transition flex items-center gap-1"
           >
-            <IconBrain className="h-3.5 w-3.5 text-realm-purple" /> Tome
+            <IconBrain className="h-3.5 w-3.5 text-warm-purple" /> Note
           </button>
           <Link
             href={`/app/timer?task=${task.id}`}
-            className="ml-auto rounded-lg bg-realm-gold px-4 py-1.5 text-xs font-quick font-bold text-[#0e0c0a] hover:shadow-[0_0_15px_rgba(240,168,104,0.35)] transition"
+            className="ml-auto rounded-lg bg-warm-amber px-4 py-1.5 text-xs font-quick font-bold text-warm-bg hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
           >
-            Accept this mission
+            Focus on this task
           </Link>
         </div>
       )}
@@ -174,17 +425,17 @@ export default function TaskCard({
         <textarea
           defaultValue={task.memoryNote}
           onBlur={(e) => onMemory(task, e.target.value)}
-          placeholder="Record your scroll notes here... Future-you will inherit this knowledge."
+          placeholder="Record task notes here..."
           rows={2}
-          className="mt-3 w-full rounded-xl border border-realm-border bg-realm-surface2 px-3 py-2 text-sm font-quick text-realm-text outline-none focus:border-realm-gold transition"
+          className="mt-3 w-full rounded-xl border border-warm-border bg-warm-surface2 px-3 py-2 text-sm font-quick text-warm-text outline-none focus:border-warm-amber transition"
         />
       )}
 
       {task.memoryNote && !showMemory && !task.done && (
-        <p className="mt-3 rounded-lg bg-realm-gold-dim border border-realm-gold/10 px-3 py-2 text-xs font-lora italic text-realm-gold flex items-center gap-1.5">
-          <IconBook className="h-3.5 w-3.5 shrink-0" /> Tome: {task.memoryNote}
+        <p className="mt-3 rounded-lg bg-warm-amber/15 border border-warm-amber/10 px-3 py-2 text-xs font-quick italic text-warm-amber flex items-center gap-1.5">
+          <IconBook className="h-3.5 w-3.5 shrink-0" /> Notes: {task.memoryNote}
         </p>
       )}
-    </div>
+    </>
   );
 }

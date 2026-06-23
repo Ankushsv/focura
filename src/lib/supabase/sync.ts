@@ -508,14 +508,16 @@ export async function syncAll(userId: string) {
           void syncPathToDb(p, userId);
         } else {
           // Merge node unlock statuses
-          p.nodes.forEach((n: any) => {
-            const matchNode = exists.nodes.find((en: any) => en.id === n.id);
+          const pNodes = p.nodes || [];
+          const existsNodes = exists.nodes || [];
+          pNodes.forEach((n: any) => {
+            const matchNode = existsNodes.find((en: any) => en.id === n.id);
             if (matchNode && n.status === "done" && matchNode.status !== "done") {
               matchNode.status = "done";
               // Update children availability in exists
-              const doneIdx = exists.nodes.findIndex((en: any) => en.id === n.id);
-              if (doneIdx !== -1 && doneIdx < exists.nodes.length - 1) {
-                exists.nodes[doneIdx + 1].status = "available";
+              const doneIdx = existsNodes.findIndex((en: any) => en.id === n.id);
+              if (doneIdx !== -1 && doneIdx < existsNodes.length - 1) {
+                existsNodes[doneIdx + 1].status = "available";
               }
               void syncPathToDb(exists, userId);
             }
@@ -722,7 +724,7 @@ export async function syncAll(userId: string) {
         mergedSessionsMap.set(key, {
           id: Math.random().toString(36).slice(2, 10),
           taskId: s.task_id,
-          taskTitle: s.task_title || "Focus Battle",
+          taskTitle: s.task_title || "Focus Session",
           plannedMinutes: s.planned_minutes,
           actualMinutes: s.actual_minutes,
           endedAt: new Date(s.ended_at).getTime()

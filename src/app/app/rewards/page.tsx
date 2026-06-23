@@ -26,10 +26,10 @@ import PixelPet from "@/components/pet/PixelPet";
 type Tab = "pets" | "shop" | "collection";
 
 const CATEGORY_COLORS: Record<string, string> = {
-  pet: "bg-realm-purple/10 text-realm-purple border-realm-purple/30 font-space",
-  title: "bg-realm-gold/10 text-realm-gold border-realm-gold/30 font-space",
-  theme: "bg-realm-teal/10 text-realm-teal border-realm-teal/30 font-space",
-  cosmetic: "bg-realm-crimson/10 text-realm-crimson border-realm-crimson/30 font-space",
+  pet: "bg-warm-purple/10 text-warm-purple border-warm-purple/30 font-space",
+  title: "bg-warm-amber/10 text-warm-amber border-warm-amber/30 font-space",
+  theme: "bg-warm-teal/10 text-warm-teal border-warm-teal/30 font-space",
+  cosmetic: "bg-rose-500/10 text-rose-400 border-rose-500/30 font-space",
 };
 
 export default function RewardsPage() {
@@ -63,9 +63,9 @@ export default function RewardsPage() {
     if (activeBattleMove) {
       const logs = [
         "A devastating blow!",
-        "The Dark Lord reels!",
-        `Your Companion ${activePet.name} channels ancient power!`,
-        "The Fog recedes slightly from the shockwave!"
+        "The resistance reels!",
+        `Your Companion ${activePet.name} channels energy!`,
+        "The distraction recedes slightly from the shockwave!"
       ];
       setBattleLogs(logs);
       
@@ -82,7 +82,7 @@ export default function RewardsPage() {
     if (success) {
       setJustUnlocked(id);
       fireConfetti();
-      bus.emit("pet:react", { message: "A new artifact has been secured in the Treasury! ✨" });
+      bus.emit("pet:react", { message: "A new reward has been unlocked! ✨" });
       setTimeout(() => setJustUnlocked(null), 2000);
     }
   }
@@ -93,25 +93,25 @@ export default function RewardsPage() {
       if (success) {
         awardXp(0, "pet-unlock");
         fireConfetti();
-        bus.emit("pet:react", { message: `${species.name} has pledged their loyalty to your cause! 🌟` });
+        bus.emit("pet:react", { message: `${species.name} is now ready to join you on your focus sessions! 🌟` });
       }
     }
   }
 
   function handleFeed() {
     feedPet();
-    bus.emit("pet:react", { message: "Your spirit companion devours the feast and grows stronger! 🍖" });
+    bus.emit("pet:react", { message: "Your companion eats and grows stronger! 🍖" });
   }
 
   function handleSpeak() {
-    bus.emit("pet:react", { message: `The bond between knight and companion strengthens. Let us ride to battle, master! ${activePet.emoji}` });
+    bus.emit("pet:react", { message: `The bond with your companion strengthens. Let's focus on our goals today! ${activePet.emoji}` });
   }
 
   const activeUsage = petUsage[activePet.id] || { focusMinutes: 0, tasksDone: 0, xpEarned: 0 };
   const focusHours = (activeUsage.focusMinutes / 60).toFixed(1);
   const isEvolved = activePet.evolutionFrom !== undefined;
 
-  // Familiar Arts Levels mapped to skills
+  // Companion Skills mapped to levels
   const skills = [
     {
       name: "Starter Passive (First Bond)",
@@ -120,22 +120,22 @@ export default function RewardsPage() {
       progress: "100%",
     },
     {
-      name: "Focused Bond (Battle Tested)",
+      name: "Focused Bond (Tested)",
       desc: "Earned by 5h focus with this pet active.",
       unlocked: activeUsage.focusMinutes >= 300,
       progress: `${(activeUsage.focusMinutes / 60).toFixed(1)}h / 5h`,
     },
     {
-      name: "LP Synchronization (Legend Touched)",
-      desc: "Earned by gaining 500 LP with this pet active.",
+      name: "XP Synchronization (Attuned)",
+      desc: "Earned by gaining 500 XP with this pet active.",
       unlocked: activeUsage.xpEarned >= 500,
-      progress: `${activeUsage.xpEarned} / 500 LP`,
+      progress: `${activeUsage.xpEarned} / 500 XP`,
     },
     {
-      name: "Quest Companion (War Hardened)",
-      desc: "Earned by completing 10 missions with this pet active.",
+      name: "Task Companion (Consistent)",
+      desc: "Earned by completing 10 tasks with this pet active.",
       unlocked: activeUsage.tasksDone >= 10,
-      progress: `${activeUsage.tasksDone} / 10 missions`,
+      progress: `${activeUsage.tasksDone} / 10 tasks`,
     },
     {
       name: "Evolutionary Might (Awakened)",
@@ -144,7 +144,7 @@ export default function RewardsPage() {
       progress: isEvolved ? "Unlocked" : "Locked (Needs Evo)",
     },
     {
-      name: "Ultimate Power (Legendary Ascendance)",
+      name: "Ultimate Power (Ascendance)",
       desc: "Ultimate: " + activePet.ultimatePower + ". Requires 20h focus.",
       unlocked: activeUsage.focusMinutes >= 1200,
       progress: `${(activeUsage.focusMinutes / 60).toFixed(1)}h / 20h`,
@@ -161,33 +161,33 @@ export default function RewardsPage() {
 
   if (!loaded)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-realm-bg text-realm-text">
+      <div className="flex min-h-screen items-center justify-center bg-warm-bg text-warm-text">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-realm-gold border-t-transparent" />
-          <p className="text-sm text-realm-muted font-lora italic">Unlocking the Treasury Vaults…</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-warm-amber border-t-transparent" />
+          <p className="text-sm text-warm-textMuted font-quick italic">Loading your rewards store…</p>
         </div>
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-realm-bg text-realm-text px-4 py-8 md:px-8">
+    <div className="min-h-screen bg-warm-bg text-warm-text px-4 py-8 md:px-8">
       {/* Ambient glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-20 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-realm-gold/5 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-realm-purple/5 blur-3xl" />
-        <div className="absolute top-1/3 left-0 h-64 w-64 rounded-full bg-realm-teal/5 blur-3xl" />
+        <div className="absolute -top-20 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-warm-amber/5 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-warm-purple/5 blur-3xl" />
+        <div className="absolute top-1/3 left-0 h-64 w-64 rounded-full bg-warm-teal/5 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-5xl space-y-8">
+      <div className="relative mx-auto max-w-[1400px] w-full space-y-8">
 
         {/* EEVEE CHOICE MODAL */}
         {eeveeChoicePending && (
-          <div className="relative overflow-hidden rounded-3xl border border-realm-gold bg-gradient-to-br from-realm-gold-dim via-realm-surface to-realm-surface2 p-8 text-center shadow-2xl">
-            <div className="absolute inset-0 bg-realm-gold/5 animate-pulse" />
+          <div className="relative overflow-hidden rounded-3xl border border-warm-amber bg-gradient-to-br from-warm-amber/10 via-warm-surface to-warm-surface2 p-8 text-center shadow-2xl">
+            <div className="absolute inset-0 bg-warm-amber/5 animate-pulse" />
             <div className="relative">
               <div className="mb-3 flex justify-center text-6xl">🦊</div>
-              <h2 className="font-cinzel text-2xl text-realm-cream">Eevee is Ready to Evolve!</h2>
-              <p className="mt-2 text-sm text-realm-muted font-lora italic">
+              <h2 className="font-space text-2xl text-warm-cream">Eevee is Ready to Evolve!</h2>
+              <p className="mt-2 text-sm text-warm-textMuted font-quick italic">
                 Choose Eevee&apos;s elemental path based on your focus style:
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
@@ -201,16 +201,16 @@ export default function RewardsPage() {
                   <button
                     key={ev.id}
                     onClick={() => resolveEeveeBranch(ev.id)}
-                    className={`rounded-2xl border ${ev.color} bg-realm-surface2 px-5 py-4 text-center transition-all hover:scale-105`}
+                    className={`rounded-2xl border ${ev.color} bg-warm-surface2 px-5 py-4 text-center transition-all hover:scale-105`}
                   >
-                    <p className="font-bold text-realm-cream font-space">{ev.name}</p>
-                    <p className="mt-0.5 text-[11px] text-realm-muted font-lora italic">{ev.desc}</p>
+                    <p className="font-bold text-warm-cream font-space">{ev.name}</p>
+                    <p className="mt-0.5 text-[11px] text-warm-textMuted font-quick italic">{ev.desc}</p>
                   </button>
                 ))}
               </div>
               <button
                 onClick={() => setEeveeChoicePending(false)}
-                className="mt-5 text-xs text-realm-muted underline hover:text-realm-cream transition-colors font-space"
+                className="mt-5 text-xs text-warm-textMuted underline hover:text-warm-cream transition-colors font-space"
               >
                 Cancel for now
               </button>
@@ -219,32 +219,32 @@ export default function RewardsPage() {
         )}
 
         {/* XP BALANCE HERO */}
-        <div className="relative overflow-hidden rounded-3xl border border-realm-border bg-gradient-to-br from-amber-950/40 via-realm-surface to-yellow-950/20 p-8 shadow-xl">
+        <div className="relative overflow-hidden rounded-3xl border border-warm-border bg-gradient-to-br from-amber-950/40 via-warm-surface to-yellow-950/20 p-8 shadow-xl">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-realm-gold/5 blur-3xl" />
-            <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-realm-purple/5 blur-2xl" />
+            <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-warm-amber/5 blur-3xl" />
+            <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-warm-purple/5 blur-2xl" />
           </div>
 
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            {/* Left: coin + LP */}
+            {/* Left: coin + XP */}
             <div className="flex items-center gap-5">
               <div className="relative shrink-0">
-                <div className="absolute inset-0 rounded-full bg-realm-gold/20 blur-xl scale-150" />
+                <div className="absolute inset-0 rounded-full bg-warm-amber/20 blur-xl scale-150" />
                 <div
-                  className="relative flex h-20 w-20 items-center justify-center rounded-full border border-realm-gold/30 bg-gradient-to-br from-realm-gold/20 to-realm-surface shadow-2xl text-5xl"
+                  className="relative flex h-20 w-20 items-center justify-center rounded-full border border-warm-amber/30 bg-gradient-to-br from-warm-amber/20 to-warm-surface shadow-2xl text-5xl"
                   style={{ animation: "float-slow 3s ease-in-out infinite" }}
                 >
-                  <IconCoin size={44} className="text-realm-gold" />
+                  <IconCoin size={44} className="text-warm-amber" />
                 </div>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-realm-muted font-space">
-                  Available Legend Points
+                <p className="text-xs font-semibold uppercase tracking-widest text-warm-textMuted font-space">
+                  Available XP Balance
                 </p>
-                <div className="bg-gradient-to-r from-realm-gold via-amber-200 to-yellow-100 bg-clip-text text-6xl font-black text-transparent leading-none mt-1 font-space">
+                <div className="bg-gradient-to-r from-warm-amber via-amber-200 to-yellow-100 bg-clip-text text-6xl font-black text-transparent leading-none mt-1 font-space">
                   {totalXp.toLocaleString()}
                 </div>
-                <p className="mt-1 text-xs text-realm-muted font-space">LP Coins</p>
+                <p className="mt-1 text-xs text-warm-textMuted font-space">XP Points</p>
               </div>
             </div>
 
@@ -252,16 +252,16 @@ export default function RewardsPage() {
             <div className="flex flex-col gap-1 sm:text-right font-space">
               <div className="flex items-center gap-2 sm:justify-end">
                 <span className="text-lg">{activePet.emoji}</span>
-                <span className="text-sm font-bold text-realm-cream">{activePet.name}</span>
-                <span className="rounded-full border border-realm-teal/30 bg-realm-teal/10 px-2 py-0.5 text-[9px] font-bold text-realm-teal">ACTIVE FAMILIAR</span>
+                <span className="text-sm font-bold text-warm-cream">{activePet.name}</span>
+                <span className="rounded-full border border-warm-teal/30 bg-warm-teal/10 px-2 py-0.5 text-[9px] font-bold text-warm-teal">ACTIVE COMPANION</span>
               </div>
-              <p className="text-xs text-realm-muted">{ownedPetIds.length} Spirit Companions Summoned · {ALL_PET_SPECIES.length - ownedPetIds.length} remaining</p>
+              <p className="text-xs text-warm-textMuted">{ownedPetIds.length} Companions Unlocked · {ALL_PET_SPECIES.length - ownedPetIds.length} remaining</p>
               <button
                 onClick={toggleSound}
                 className={`mt-2 self-start sm:self-end rounded-xl border px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
                   soundEnabled
-                    ? "border-realm-teal/40 bg-realm-teal/10 text-realm-teal"
-                    : "border-realm-border bg-realm-surface2 text-realm-muted hover:text-realm-cream"
+                    ? "border-warm-teal/40 bg-warm-teal/10 text-warm-teal"
+                    : "border-warm-border bg-warm-surface2 text-warm-textMuted hover:text-warm-cream"
                 }`}
               >
                 {soundEnabled ? (
@@ -282,16 +282,16 @@ export default function RewardsPage() {
 
         {/* COMBAT LOG OVERLAY WHEN ULTIMATE ACTIVE */}
         {activeBattleMove && battleLogs.length > 0 && (
-          <div className="relative overflow-hidden rounded-2xl border-2 border-realm-gold bg-realm-surface2 p-6 shadow-2xl animate-pulse">
-            <div className="absolute inset-0 bg-realm-gold/5 pointer-events-none" />
+          <div className="relative overflow-hidden rounded-2xl border-2 border-warm-amber bg-warm-surface2 p-6 shadow-2xl animate-pulse">
+            <div className="absolute inset-0 bg-warm-amber/5 pointer-events-none" />
             <div className="relative flex flex-col items-center text-center">
-              <h3 className="font-cinzel text-xl text-realm-gold flex items-center gap-2">
-                <IconSwords className="text-realm-gold animate-bounce" />
-                ULTIMATE ACTIVATED: {activeBattleMove}
+              <h3 className="font-space text-xl text-warm-amber flex items-center gap-2">
+                <IconSwords className="text-warm-amber animate-bounce" />
+                ULTIMATE POWER ACTIVATED: {activeBattleMove}
               </h3>
-              <div className="mt-3 space-y-1 font-lora italic text-realm-cream text-sm">
+              <div className="mt-3 space-y-1 font-quick italic text-warm-cream text-sm">
                 {battleLogs.map((log, idx) => (
-                  <p key={idx} className={idx === 0 ? "text-realm-crimson font-bold" : ""}>
+                  <p key={idx} className={idx === 0 ? "text-priority-critical font-bold" : ""}>
                     {log}
                   </p>
                 ))}
@@ -301,19 +301,19 @@ export default function RewardsPage() {
         )}
 
         {/* TAB BAR */}
-        <div className="flex gap-1 rounded-2xl border border-realm-border bg-realm-surface2 p-1.5 w-fit backdrop-blur-sm">
+        <div className="flex gap-1 rounded-2xl border border-warm-border bg-warm-surface2 p-1.5 w-fit backdrop-blur-sm">
           {[
             { id: "pets", label: "🦊 Companions" },
-            { id: "shop", label: "🛒 Treasury Shop" },
-            { id: "collection", label: "✨ Artifact Vault" },
+            { id: "shop", label: "🛒 Shop" },
+            { id: "collection", label: "✨ Collection" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as Tab)}
               className={`rounded-xl px-6 py-2.5 text-sm font-bold transition-all duration-200 font-space ${
                 activeTab === tab.id
-                  ? "bg-gradient-to-r from-realm-gold to-orange-400 text-realm-bg shadow-lg"
-                  : "text-realm-muted hover:text-realm-cream"
+                  ? "bg-gradient-to-r from-warm-amber to-orange-400 text-warm-bg shadow-lg"
+                  : "text-warm-textMuted hover:text-warm-cream"
               }`}
             >
               {tab.label}
@@ -327,21 +327,21 @@ export default function RewardsPage() {
             {/* Active pet profile */}
             <div className="grid gap-6 md:grid-cols-3">
               {/* Pet card */}
-              <div className="relative overflow-hidden rounded-2xl border border-realm-border bg-realm-surface p-6 flex flex-col items-center text-center shadow-lg">
-                <div className="absolute inset-0 bg-gradient-to-br from-realm-purple/5 via-transparent to-realm-gold/5 pointer-events-none" />
-                <div className="absolute top-2 right-2 rounded-full border border-realm-border bg-realm-surface2/85 px-2.5 py-0.5 text-[9px] text-realm-muted font-space">
+              <div className="relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface p-6 flex flex-col items-center text-center shadow-lg">
+                <div className="absolute inset-0 bg-gradient-to-br from-warm-purple/5 via-transparent to-warm-amber/5 pointer-events-none" />
+                <div className="absolute top-2 right-2 rounded-full border border-warm-border bg-warm-surface2/85 px-2.5 py-0.5 text-[9px] text-warm-textMuted font-space">
                   {activePet.theme} Element
                 </div>
                 <div className="relative mt-4 flex flex-col items-center">
                   <div className="relative">
-                    <div className="absolute inset-0 rounded-full bg-realm-purple/10 blur-xl scale-150" />
-                    <span className="relative text-7xl w-24 h-24 flex items-center justify-center bg-realm-surface2 rounded-full ring-2 ring-realm-purple/35 animate-bounce">
+                    <div className="absolute inset-0 rounded-full bg-warm-purple/10 blur-xl scale-150" />
+                    <span className="relative text-7xl w-24 h-24 flex items-center justify-center bg-warm-surface2 rounded-full ring-2 ring-warm-purple/35 animate-bounce">
                       {activePet.emoji}
                     </span>
                   </div>
-                  <h2 className="font-cinzel text-2xl mt-4 text-realm-cream">{activePet.name}</h2>
-                  <p className="text-xs text-realm-muted mt-1 uppercase tracking-widest font-space">{activePet.category} familiar</p>
-                  <p className="text-xs text-realm-muted mt-3 px-4 italic leading-relaxed font-lora">{activePet.description}</p>
+                  <h2 className="font-space text-2xl mt-4 text-warm-cream font-bold">{activePet.name}</h2>
+                  <p className="text-xs text-warm-textMuted mt-1 uppercase tracking-widest font-space">{activePet.category} companion</p>
+                  <p className="text-xs text-warm-textMuted mt-3 px-4 italic leading-relaxed font-quick">{activePet.description}</p>
                 </div>
                 <div className="mt-6 flex gap-2 w-full font-space">
                   <button
@@ -353,7 +353,7 @@ export default function RewardsPage() {
                   </button>
                   <button
                     onClick={handleSpeak}
-                    className="flex-1 text-xs py-2 border border-realm-border bg-realm-surface2 text-realm-cream rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-1 font-bold"
+                    className="flex-1 text-xs py-2 border border-warm-border bg-warm-surface2 text-warm-cream rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-1 font-bold"
                   >
                     <IconMessage size={14} />
                     Speak
@@ -362,43 +362,43 @@ export default function RewardsPage() {
               </div>
 
               {/* Pet stats */}
-              <div className="rounded-2xl border border-realm-border bg-realm-surface p-6 md:col-span-2 space-y-4 shadow-lg">
-                <h3 className="font-cinzel text-lg text-realm-cream flex items-center gap-2 border-b border-realm-border pb-3">
+              <div className="rounded-2xl border border-warm-border bg-warm-surface p-6 md:col-span-2 space-y-4 shadow-lg">
+                <h3 className="font-space font-bold text-lg text-warm-cream flex items-center gap-2 border-b border-warm-border pb-3">
                   📊 Companion Bond & Stats
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
-                    { label: "❤️ Spirit Happiness", val: petStats.happiness, color: "from-realm-crimson to-red-400", tip: "Increases on missions completed" },
-                    { label: "⚡ Battle Energy", val: petStats.energy, color: "from-realm-gold to-orange-400", tip: "Increases when resting between battles" },
-                    { label: "🤝 Oath Bond Level", val: petStats.bond, color: "from-realm-purple to-realm-teal", tip: "Increases with daily consistency" },
-                    { label: "🎯 Focus Attunement", val: petStats.focus, color: "from-realm-gold via-yellow-400 to-teal-400", tip: "Grows as focus battles are fought" },
+                    { label: "❤️ Companion Happiness", val: petStats.happiness, color: "from-rose-500 to-red-400", tip: "Increases on tasks completed" },
+                    { label: "⚡ Focus Energy", val: petStats.energy, color: "from-warm-amber to-orange-400", tip: "Increases when resting between sessions" },
+                    { label: "🤝 Attunement Bond", val: petStats.bond, color: "from-warm-purple to-warm-teal", tip: "Increases with daily consistency" },
+                    { label: "🎯 Focus Attunement", val: petStats.focus, color: "from-warm-amber via-yellow-400 to-warm-teal", tip: "Grows as focus sessions are logged" },
                   ].map((stat) => (
-                    <div key={stat.label} className="space-y-2 rounded-xl border border-realm-border bg-realm-surface2/60 p-3">
-                      <div className="flex justify-between text-xs font-bold text-realm-cream font-space">
+                    <div key={stat.label} className="space-y-2 rounded-xl border border-warm-border bg-warm-surface2/60 p-3">
+                      <div className="flex justify-between text-xs font-bold text-warm-cream font-space">
                         <span>{stat.label}</span>
                         <span>{stat.val}%</span>
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-realm-border">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-warm-border">
                         <div
                           className={`h-full rounded-full bg-gradient-to-r ${stat.color} transition-all duration-700`}
                           style={{ width: `${stat.val}%` }}
                         />
                       </div>
-                      <p className="text-[9px] text-realm-muted font-lora italic">{stat.tip}</p>
+                      <p className="text-[9px] text-warm-textMuted font-quick italic">{stat.tip}</p>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-4 rounded-xl border border-realm-purple/20 bg-realm-purple/5 p-4 flex justify-between items-center font-space">
+                <div className="mt-4 rounded-xl border border-warm-purple/20 bg-warm-purple/5 p-4 flex justify-between items-center font-space">
                   <div>
-                    <p className="text-sm font-bold text-realm-purple">Battle Log</p>
-                    <p className="text-[10px] text-realm-muted mt-0.5">
-                      Focus: {focusHours}h · Tasks: {activeUsage.tasksDone} · LP: {activeUsage.xpEarned}
+                    <p className="text-sm font-bold text-warm-purple">Activity Log</p>
+                    <p className="text-[10px] text-warm-textMuted mt-0.5">
+                      Focus: {focusHours}h · Tasks: {activeUsage.tasksDone} · XP: {activeUsage.xpEarned}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-widest text-realm-muted">Ultimate Strike</p>
-                    <p className={`text-sm font-black ${activeUsage.focusMinutes >= 1200 ? "text-realm-gold animate-pulse" : "text-realm-muted/50"}`}>
+                    <p className="text-[10px] uppercase tracking-widest text-warm-textMuted">Attuned Strike</p>
+                    <p className={`text-sm font-black ${activeUsage.focusMinutes >= 1200 ? "text-warm-amber animate-pulse" : "text-warm-textMuted/50"}`}>
                       {activeUsage.focusMinutes >= 1200 ? "⚡ READY" : "LOCKED"}
                     </p>
                   </div>
@@ -406,13 +406,13 @@ export default function RewardsPage() {
               </div>
             </div>
 
-            {/* Skills board (Familiar Arts) */}
-            <div className="rounded-2xl border border-realm-border bg-realm-surface p-6 shadow-lg">
-              <div className="flex items-center justify-between border-b border-realm-border pb-3 mb-5">
-                <h3 className="font-cinzel text-lg text-realm-cream flex items-center gap-2">
-                  ⚔️ Familiar Arts & Combat Skills
+            {/* Skills board (Companion Skills) */}
+            <div className="rounded-2xl border border-warm-border bg-warm-surface p-6 shadow-lg">
+              <div className="flex items-center justify-between border-b border-warm-border pb-3 mb-5">
+                <h3 className="font-space text-lg font-bold text-warm-cream flex items-center gap-2">
+                  ⚔️ Companion Skills & Attunement
                 </h3>
-                <span className="text-xs text-realm-muted font-lora italic">Unlock tiers by fighting battles with this companion</span>
+                <span className="text-xs text-warm-textMuted font-quick italic">Unlock tiers by focus sessions with this companion</span>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {skills.map((skill, idx) => (
@@ -420,33 +420,33 @@ export default function RewardsPage() {
                     key={skill.name}
                     className={`relative overflow-hidden rounded-xl border p-4 transition-all ${
                       skill.unlocked
-                        ? "border-realm-purple/30 bg-gradient-to-br from-realm-purple/5 to-realm-surface2 shadow-md"
-                        : "border-realm-border/50 bg-realm-surface2/20 opacity-50"
+                        ? "border-warm-purple/30 bg-gradient-to-br from-warm-purple/5 to-warm-surface2 shadow-md"
+                        : "border-warm-border/50 bg-warm-surface2/20 opacity-50"
                     }`}
                   >
                     {skill.unlocked && (
-                      <div className="absolute top-0 right-0 h-16 w-16 rounded-full bg-realm-purple/5 blur-xl pointer-events-none" />
+                      <div className="absolute top-0 right-0 h-16 w-16 rounded-full bg-warm-purple/5 blur-xl pointer-events-none" />
                     )}
                     <div className="relative flex items-center justify-between mb-2">
-                      <span className="text-[9px] uppercase font-black tracking-widest text-realm-purple font-space">
+                      <span className="text-[9px] uppercase font-black tracking-widest text-warm-purple font-space">
                         Tier {idx + 1}
                       </span>
                       <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold font-space ${
-                        skill.unlocked ? "bg-green-500/10 text-green-300 border border-green-500/20" : "bg-realm-border text-realm-muted"
+                        skill.unlocked ? "bg-green-500/10 text-green-300 border border-green-500/20" : "bg-warm-border text-warm-textMuted"
                       }`}>
                         {skill.unlocked ? "UNLOCKED" : "LOCKED"}
                       </span>
                     </div>
-                    <h4 className="font-bold text-realm-cream font-space">{skill.name}</h4>
-                    <p className="text-xs text-realm-muted mt-1 leading-relaxed font-lora italic">{skill.desc}</p>
-                    <div className="mt-3 flex justify-between items-center text-[10px] text-realm-muted font-space">
+                    <h4 className="font-bold text-warm-cream font-space">{skill.name}</h4>
+                    <p className="text-xs text-warm-textMuted mt-1 leading-relaxed font-quick italic">{skill.desc}</p>
+                    <div className="mt-3 flex justify-between items-center text-[10px] text-warm-textMuted font-space">
                       <span>Requirement</span>
-                      <span className={skill.unlocked ? "text-realm-purple font-bold" : ""}>{skill.progress}</span>
+                      <span className={skill.unlocked ? "text-warm-purple font-bold" : ""}>{skill.progress}</span>
                     </div>
                     {skill.isUltimate && skill.unlocked && (
                       <button
                         onClick={() => triggerBattleMove(activePet.ultimatePower)}
-                        className="mt-3 w-full py-1.5 text-xs font-bold bg-gradient-to-r from-realm-gold to-orange-400 border border-realm-gold/20 text-realm-bg rounded-lg hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-1"
+                        className="mt-3 w-full py-1.5 text-xs font-bold bg-gradient-to-r from-warm-amber to-orange-400 border border-warm-amber/20 text-warm-bg rounded-lg hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-1"
                       >
                         <IconSwords size={14} />
                         ⚡ UNLEASH ULTIMATE
@@ -459,25 +459,25 @@ export default function RewardsPage() {
 
             {/* Pet Roster */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-4 border-b border-realm-border pb-3">
-                <h3 className="font-cinzel text-lg text-realm-cream flex items-center gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-4 border-b border-warm-border pb-3">
+                <h3 className="font-space text-lg font-bold text-warm-cream flex items-center gap-2">
                   🦊 Roster & Companions
                 </h3>
                 {/* Filter pills */}
                 <div className="flex flex-wrap gap-2">
                   {[
                     { id: "all", label: "All Companions" },
-                    { id: "pokemon", label: "Commoner / Squire" },
+                    { id: "pokemon", label: "Standard / Common" },
                     { id: "legendary", label: "Legendary" },
-                    { id: "mythic", label: "Special Quest" },
+                    { id: "mythic", label: "Special Unlocks" },
                   ].map((filter) => (
                     <button
                       key={filter.id}
                       onClick={() => setPetFilter(filter.id as "all" | "pokemon" | "legendary" | "mythic")}
                       className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all font-space ${
                         petFilter === filter.id
-                          ? "bg-gradient-to-r from-realm-gold to-orange-400 text-realm-bg shadow-md"
-                          : "border border-realm-border bg-realm-surface text-realm-muted hover:text-realm-cream"
+                          ? "bg-gradient-to-r from-warm-amber to-orange-400 text-warm-bg shadow-md"
+                          : "border border-warm-border bg-warm-surface text-warm-textMuted hover:text-warm-cream"
                       }`}
                     >
                       {filter.label}
@@ -497,82 +497,82 @@ export default function RewardsPage() {
                       key={species.id}
                       className={`group relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 ${
                         isActive
-                          ? "border-realm-gold bg-gradient-to-br from-realm-gold-dim to-realm-surface shadow-md"
+                          ? "border-warm-amber bg-gradient-to-br from-warm-amber/15 to-warm-surface shadow-md"
                           : isOwned
-                          ? "border-realm-border bg-realm-surface hover:border-realm-gold/20 hover:scale-[1.02] cursor-pointer"
-                          : "border-realm-border/40 bg-realm-surface2/20 opacity-60"
+                          ? "border-warm-border bg-warm-surface hover:border-warm-amber/20 hover:scale-[1.02] cursor-pointer"
+                          : "border-warm-border/40 bg-warm-surface2/20 opacity-60"
                       }`}
                     >
                       {isActive && (
-                        <div className="absolute top-0 right-0 h-20 w-20 rounded-full bg-realm-gold/5 blur-2xl pointer-events-none" />
+                        <div className="absolute top-0 right-0 h-20 w-20 rounded-full bg-warm-amber/5 blur-2xl pointer-events-none" />
                       )}
 
                       <div className="relative flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                           <div
                             className={`flex h-14 w-14 items-center justify-center rounded-2xl text-3xl transition-all ${
-                              isActive ? "bg-realm-gold-dim shadow-lg scale-105 border border-realm-gold/20" : "bg-realm-surface2"
+                              isActive ? "bg-warm-amber/15 shadow-lg scale-105 border border-warm-amber/20" : "bg-warm-surface2"
                             }`}
                           >
                             {species.emoji}
                           </div>
                           {isActive ? (
-                            <span className="rounded-full border border-realm-gold/40 bg-realm-gold-dim px-2.5 py-0.5 text-[10px] font-bold text-realm-gold font-space">
+                            <span className="rounded-full border border-warm-amber/40 bg-warm-amber/10 px-2.5 py-0.5 text-[10px] font-bold text-warm-amber font-space">
                               ★ Active
                             </span>
                           ) : isOwned ? (
                             <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold text-green-300 font-space">
-                              Summoned
+                              Unlocked
                             </span>
                           ) : species.unlockCondition ? (
-                            <span className="rounded-full border border-realm-crimson/20 bg-realm-crimson/10 px-2.5 py-0.5 text-[10px] font-bold text-realm-crimson font-space flex items-center gap-0.5">
+                            <span className="rounded-full border border-priority-critical/20 bg-priority-critical/10 px-2.5 py-0.5 text-[10px] font-bold text-priority-critical font-space flex items-center gap-0.5">
                               <IconLock size={10} /> Special
                             </span>
                           ) : (
-                            <span className="rounded-full border border-realm-border bg-realm-surface2 px-2.5 py-0.5 text-[10px] font-bold text-realm-muted font-space flex items-center gap-0.5">
+                            <span className="rounded-full border border-warm-border bg-warm-surface2 px-2.5 py-0.5 text-[10px] font-bold text-warm-textMuted font-space flex items-center gap-0.5">
                               <IconLock size={10} /> Locked
                             </span>
                           )}
                         </div>
 
                         <div>
-                          <h3 className="font-bold text-realm-cream font-space">{species.name}</h3>
-                          <p className="mt-1 text-xs text-realm-muted font-lora italic leading-relaxed min-h-[36px]">
+                          <h3 className="font-bold text-warm-cream font-space">{species.name}</h3>
+                          <p className="mt-1 text-xs text-warm-textMuted font-quick italic leading-relaxed min-h-[36px]">
                             {species.description}
                           </p>
                         </div>
 
                         {species.unlockCondition && !isOwned && (
-                          <div className="text-[10px] text-realm-crimson bg-realm-crimson/5 border border-realm-crimson/10 rounded-lg p-2 font-mono">
-                            Quest: {species.unlockCondition}
+                          <div className="text-[10px] text-priority-critical bg-priority-critical/5 border border-priority-critical/10 rounded-lg p-2 font-mono">
+                            Task: {species.unlockCondition}
                           </div>
                         )}
 
-                        <div className="pt-2 border-t border-realm-border font-space">
+                        <div className="pt-2 border-t border-warm-border font-space">
                           {isOwned ? (
                             <button
                               disabled={isActive}
                               onClick={() => equipPet(species.id)}
                               className={`text-xs px-3 py-2 w-full rounded-xl font-bold transition-all ${
                                 isActive 
-                                  ? "bg-realm-gold-dim border border-realm-gold/20 text-realm-gold cursor-default" 
-                                  : "bg-realm-surface2 border border-realm-border text-realm-cream hover:bg-realm-border"
+                                  ? "bg-warm-amber/15 border border-warm-amber/20 text-warm-amber cursor-default" 
+                                  : "bg-warm-surface2 border border-warm-border text-warm-cream hover:bg-warm-border"
                               }`}
                             >
-                              {isActive ? "✓ Guided by this Spirit" : "Summon Companion"}
+                              {isActive ? "✓ Active Companion" : "Equip Companion"}
                             </button>
                           ) : species.unlockCondition ? (
                             <button
                               disabled
-                              className="text-xs px-3 py-2 w-full text-realm-muted bg-realm-surface2 border border-realm-border/50 rounded-xl cursor-not-allowed font-bold"
+                              className="text-xs px-3 py-2 w-full text-warm-textMuted bg-warm-surface2 border border-warm-border/50 rounded-xl cursor-not-allowed font-bold"
                             >
-                              Fulfill quest to unlock
+                              Fulfill task to unlock
                             </button>
                           ) : (
                             <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-1 text-sm font-bold text-realm-muted font-space">
+                              <span className="flex items-center gap-1 text-sm font-bold text-warm-textMuted font-space">
                                 🟡{" "}
-                                <span className={canAfford ? "text-realm-gold font-black" : ""}>
+                                <span className={canAfford ? "text-warm-amber font-black" : ""}>
                                   {species.cost.toLocaleString()}
                                 </span>
                               </span>
@@ -580,13 +580,13 @@ export default function RewardsPage() {
                                 <button
                                   disabled={!canAfford}
                                   onClick={() => handleUnlockPet(species)}
-                                  className="text-xs px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-realm-gold to-orange-400 text-realm-bg font-bold shadow-md hover:scale-105 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                                  className="text-xs px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-warm-amber to-orange-400 text-warm-bg font-bold shadow-md hover:scale-105 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
                                 >
-                                  Summon
+                                  Unlock
                                 </button>
                                 {!canAfford && (
-                                  <div className="absolute bottom-full right-0 mb-2 hidden whitespace-nowrap rounded-xl border border-realm-border bg-realm-surface2 px-3 py-1.5 text-xs text-realm-muted shadow-2xl group-hover/unlock:block font-space z-20">
-                                    Requires {(species.cost - totalXp).toLocaleString()} more LP
+                                  <div className="absolute bottom-full right-0 mb-2 hidden whitespace-nowrap rounded-xl border border-warm-border bg-warm-surface2 px-3 py-1.5 text-xs text-warm-textMuted shadow-2xl group-hover/unlock:block font-space z-20">
+                                    Requires {(species.cost - totalXp).toLocaleString()} more XP
                                   </div>
                                 )}
                               </div>
@@ -606,11 +606,11 @@ export default function RewardsPage() {
         {activeTab === "shop" && (
           <div>
             {shopRewards.length === 0 ? (
-              <div className="relative overflow-hidden rounded-3xl border border-realm-gold/20 bg-gradient-to-br from-amber-950/20 via-realm-surface to-realm-surface2 py-20 text-center shadow-lg">
+              <div className="relative overflow-hidden rounded-3xl border border-warm-amber/20 bg-gradient-to-br from-amber-950/20 via-warm-surface to-warm-surface2 py-20 text-center shadow-lg">
                 <div className="flex flex-col items-center gap-4">
-                  <IconTrophy size={64} className="text-realm-gold animate-bounce" />
-                  <p className="font-cinzel text-xl text-realm-cream">All Treasures Secured!</p>
-                  <p className="text-sm text-realm-muted font-lora italic">You have unlocked all artifacts available in the Treasury. Continue your watch, knight!</p>
+                  <IconTrophy size={64} className="text-warm-amber animate-bounce" />
+                  <p className="font-space text-xl font-bold text-warm-cream">All Rewards Unlocked!</p>
+                  <p className="text-sm text-warm-textMuted font-quick italic">You have unlocked all items available in the shop. Keep up the consistent work!</p>
                 </div>
               </div>
             ) : (
@@ -622,38 +622,38 @@ export default function RewardsPage() {
                     <div
                       key={reward.id}
                       className={`group relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 ${
-                        canAfford ? "border-realm-border bg-realm-surface hover:border-realm-gold/30 hover:scale-[1.02]" : "border-realm-border bg-realm-surface2 opacity-50"
-                      } ${isJustUnlocked ? "border-realm-gold bg-realm-gold-dim shadow-xl" : ""}`}
+                        canAfford ? "border-warm-border bg-warm-surface hover:border-warm-amber/30 hover:scale-[1.02]" : "border-warm-border bg-warm-surface2 opacity-50"
+                      } ${isJustUnlocked ? "border-warm-amber bg-warm-amber/15 shadow-xl" : ""}`}
                     >
                       {/* Locked overlay */}
                       {!canAfford && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/50 backdrop-blur-[1px]">
                           <div className="flex flex-col items-center gap-1 font-space">
-                            <IconLock size={20} className="text-realm-muted" />
-                            <span className="text-[10px] font-bold text-realm-muted">
-                              Need {(reward.cost - totalXp).toLocaleString()} more LP
+                            <IconLock size={20} className="text-warm-textMuted" />
+                            <span className="text-[10px] font-bold text-warm-textMuted">
+                              Need {(reward.cost - totalXp).toLocaleString()} more XP
                             </span>
                           </div>
                         </div>
                       )}
 
                       {canAfford && (
-                        <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-realm-gold/5 blur-2xl transition-all group-hover:bg-realm-gold/10" />
+                        <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-warm-amber/5 blur-2xl transition-all group-hover:bg-warm-amber/10" />
                       )}
                       {isJustUnlocked && (
-                        <div className="absolute inset-0 rounded-2xl bg-realm-gold/5 animate-pulse pointer-events-none" />
+                        <div className="absolute inset-0 rounded-2xl bg-warm-amber/5 animate-pulse pointer-events-none" />
                       )}
 
                       <div className="relative flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                           <div className={`flex h-14 w-14 items-center justify-center rounded-2xl text-3xl transition-all ${
-                            isJustUnlocked ? "bg-realm-gold-dim scale-110 border border-realm-gold/20" : "bg-realm-surface2"
+                            isJustUnlocked ? "bg-warm-amber/15 scale-110 border border-warm-amber/20" : "bg-warm-surface2"
                           }`}>
                             {reward.icon}
                           </div>
                           <span
                             className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
-                              CATEGORY_COLORS[reward.category] || "border-realm-border bg-realm-surface2 text-realm-muted"
+                              CATEGORY_COLORS[reward.category] || "border-warm-border bg-warm-surface2 text-warm-textMuted"
                             }`}
                           >
                             {CATEGORY_LABELS[reward.category]}
@@ -661,23 +661,23 @@ export default function RewardsPage() {
                         </div>
 
                         <div>
-                          <h3 className="font-bold text-realm-cream font-space">{reward.name}</h3>
-                          <p className="mt-1 text-xs text-realm-muted font-lora italic leading-relaxed">{reward.description}</p>
+                          <h3 className="font-bold text-warm-cream font-space">{reward.name}</h3>
+                          <p className="mt-1 text-xs text-warm-textMuted font-quick italic leading-relaxed">{reward.description}</p>
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-realm-border font-space">
-                          <span className="flex items-center gap-1 text-sm font-bold text-realm-muted">
+                        <div className="flex items-center justify-between pt-2 border-t border-warm-border font-space">
+                          <span className="flex items-center gap-1 text-sm font-bold text-warm-textMuted">
                             <span>🟡</span>
-                            <span className={canAfford ? "text-realm-gold font-black" : ""}>
+                            <span className={canAfford ? "text-warm-amber font-black" : ""}>
                               {reward.cost.toLocaleString()}
                             </span>
                           </span>
                           <button
                             disabled={!canAfford}
                             onClick={() => handlePurchase(reward.id)}
-                            className="text-xs px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-realm-gold to-orange-400 text-realm-bg font-bold shadow-md hover:scale-105 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                            className="text-xs px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-warm-amber to-orange-400 text-warm-bg font-bold shadow-md hover:scale-105 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
                           >
-                            {isJustUnlocked ? "✓ Secured" : "Secure"}
+                            {isJustUnlocked ? "✓ Unlocked" : "Unlock"}
                           </button>
                         </div>
                       </div>
@@ -693,20 +693,20 @@ export default function RewardsPage() {
         {activeTab === "collection" && (
           <div>
             {unlockedRewards.length === 0 ? (
-              <div className="relative overflow-hidden rounded-3xl border border-realm-border bg-realm-surface py-20 text-center shadow-lg">
+              <div className="relative overflow-hidden rounded-3xl border border-warm-border bg-warm-surface py-20 text-center shadow-lg">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-realm-border bg-realm-surface2 text-5xl">
-                    <IconBookmark size={48} className="text-realm-muted/50" />
+                  <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-warm-border bg-warm-surface2 text-5xl">
+                    <IconBookmark size={48} className="text-warm-textMuted/50" />
                   </div>
-                  <p className="font-cinzel text-xl text-realm-cream">Your Vault is Empty</p>
-                  <p className="text-sm text-realm-muted font-lora italic">
-                    Amass Legend Points and claim relics from the Treasury shop!
+                  <p className="font-space text-xl font-bold text-warm-cream">Your Vault is Empty</p>
+                  <p className="text-sm text-warm-textMuted font-quick italic">
+                    Amass XP and unlock rewards from the shop!
                   </p>
                   <button 
                     onClick={() => setActiveTab("shop")} 
-                    className="mt-4 px-6 py-2.5 rounded-xl bg-gradient-to-r from-realm-gold to-orange-400 text-realm-bg font-bold shadow-md hover:scale-105 active:scale-95 transition-all font-space"
+                    className="mt-4 px-6 py-2.5 rounded-xl bg-gradient-to-r from-warm-amber to-orange-400 text-warm-bg font-bold shadow-md hover:scale-105 active:scale-95 transition-all font-space"
                   >
-                    Browse Treasury Shop →
+                    Browse Shop →
                   </button>
                 </div>
               </div>
@@ -715,14 +715,14 @@ export default function RewardsPage() {
                 {unlockedRewards.map((reward) => (
                   <div
                     key={reward.id}
-                    className={`group relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 ${
+                    className={`group relative overflow-hidden rounded-2xl border ${
                       reward.equipped
-                        ? "border-realm-gold bg-gradient-to-br from-realm-gold-dim to-realm-surface shadow-md"
-                        : "border-realm-border bg-realm-surface hover:border-realm-gold/20"
+                        ? "border-warm-amber bg-gradient-to-br from-warm-amber/10 to-warm-surface shadow-md"
+                        : "border-warm-border bg-warm-surface hover:border-warm-amber/20"
                     }`}
                   >
                     {reward.equipped && (
-                      <div className="absolute inset-0 bg-gradient-to-br from-realm-gold-dim to-transparent pointer-events-none" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-warm-amber/10 to-transparent pointer-events-none" />
                     )}
 
                     <div className="relative flex flex-col gap-3">
@@ -730,32 +730,32 @@ export default function RewardsPage() {
                         <div
                           className={`relative flex h-14 w-14 items-center justify-center rounded-2xl text-3xl transition-all ${
                             reward.equipped
-                              ? "bg-realm-gold-dim shadow-lg scale-105 border border-realm-gold/20"
-                              : "bg-realm-surface2"
+                              ? "bg-warm-amber/15 shadow-lg scale-105 border border-warm-amber/20"
+                              : "bg-warm-surface2"
                           }`}
                         >
                           {reward.icon}
                           {reward.equipped && (
-                            <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-realm-gold/25 bg-realm-gold text-[10px]">
-                              👑
+                            <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-warm-amber/25 bg-warm-amber text-[10px]">
+                              ★
                             </div>
                           )}
                         </div>
                         {reward.equipped && (
-                          <span className="rounded-full border border-realm-gold/40 bg-realm-gold-dim px-2.5 py-0.5 text-[10px] font-black text-realm-gold font-space">
+                          <span className="rounded-full border border-warm-amber/40 bg-warm-amber/10 px-2.5 py-0.5 text-[10px] font-black text-warm-amber font-space">
                             Equipped
                           </span>
                         )}
                       </div>
 
                       <div>
-                        <h3 className="font-bold text-realm-cream font-space">{reward.name}</h3>
-                        <p className="mt-1 text-xs text-realm-muted font-lora italic leading-relaxed">{reward.description}</p>
+                        <h3 className="font-bold text-warm-cream font-space">{reward.name}</h3>
+                        <p className="mt-1 text-xs text-warm-textMuted font-quick italic leading-relaxed">{reward.description}</p>
                       </div>
 
                       <span
                         className={`w-fit rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
-                          CATEGORY_COLORS[reward.category] || "border-realm-border bg-realm-surface2 text-realm-muted"
+                          CATEGORY_COLORS[reward.category] || "border-warm-border bg-warm-surface2 text-warm-textMuted"
                         }`}
                       >
                         {CATEGORY_LABELS[reward.category]}
@@ -765,11 +765,11 @@ export default function RewardsPage() {
                         onClick={() => equipReward(reward.id)}
                         className={`text-xs px-3 py-2 w-full rounded-xl font-bold transition-all font-space ${
                           reward.equipped 
-                            ? "bg-realm-surface2 border border-realm-border text-realm-muted hover:text-realm-cream" 
-                            : "bg-gradient-to-r from-realm-gold to-orange-400 text-realm-bg shadow-md"
+                            ? "bg-warm-surface2 border border-warm-border text-warm-textMuted hover:text-warm-cream" 
+                            : "bg-gradient-to-r from-warm-amber to-orange-400 text-warm-bg shadow-md"
                         }`}
                       >
-                        {reward.equipped ? "Unequip Relic" : "Equip Relic"}
+                        {reward.equipped ? "Unequip Reward" : "Equip Reward"}
                       </button>
                     </div>
                   </div>

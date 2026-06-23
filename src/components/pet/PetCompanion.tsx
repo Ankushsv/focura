@@ -11,19 +11,19 @@ import { type AnimationType } from "./petFrames";
 import { playPetSound } from "@/lib/pet/sounds";
 
 const IDLE_MESSAGES = [
-  "The realm is quiet. For now.",
-  "Even the greatest knights rest.",
-  "Even I falter. Rise when ready.",
-  "The Oath Fire burns bright.",
-  "Drink water, knight. The battle can wait.",
-  "Our steel remains sharp. Prepare for the next ride.",
+  "Peace and quiet. Perfect for focus.",
+  "Resting is part of the progress.",
+  "Taking a break is natural. Return when ready.",
+  "The consistency streak is strong.",
+  "Drink water. Take a quick breathing break.",
+  "Ready for the next session. Let's do this.",
 ];
 
 const XP_MESSAGES = [
-  "A blow well struck, knight.",
-  "For the realm!",
-  "Your legend grows!",
-  "Victory is ours!",
+  "Great job! Keep it up.",
+  "Awesome progress!",
+  "Keep building momentum!",
+  "Task completed!",
 ];
 
 const IDLE_ANIMATIONS: AnimationType[] = ["idle", "read", "stretch", "sleep", "walk"];
@@ -39,7 +39,7 @@ const getNavTargets = () => {
 const triggerLinkInteraction = (el: HTMLElement) => {
   el.style.transition = "transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s";
   el.style.transform = "scale(1.15) translateY(-5px)";
-  el.style.filter = "drop-shadow(0 0 8px rgba(139, 92, 246, 0.8))";
+  el.style.filter = "drop-shadow(0 0 8px rgba(240, 168, 104, 0.8))";
   
   setTimeout(() => {
     el.style.transform = "scale(0.95) translateY(2px)";
@@ -66,7 +66,7 @@ export default function PetCompanion() {
 
   const isCat = activePet.id === "cat";
 
-  const [message, setMessage] = useState("Your legend begins here.");
+  const [message, setMessage] = useState("Your journey begins here.");
   const [animation, setAnimation] = useState<AnimationType | string>("idle");
   const [visible, setVisible] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -136,10 +136,10 @@ export default function PetCompanion() {
     if (isFocusing) return;
     if (petStats.energy < 30) {
       setAnimation("sleep");
-      setMessage("Even the greatest knights rest. 😴");
+      setMessage("Time to recharge. 😴");
     } else if (petStats.happiness < 30) {
       setAnimation("sleep");
-      setMessage("The Fog thickens. Let us ride to Battle! ⚔️");
+      setMessage("Feeling blocked? Let's start a quick focus session! 🚀");
     } else {
       setAnimation("idle");
     }
@@ -248,22 +248,22 @@ export default function PetCompanion() {
     const offTimerStart = bus.on("timer:start", () => {
       setIsFocusing(true);
       setAnimation("read");
-      setMessage("The battle begins. Ride hard. ⚔️");
+      setMessage("Focus session active. Let's do this! 🚀");
     });
     const offTimerPause = bus.on("timer:pause", () => {
       setIsFocusing(false);
       setAnimation("idle");
-      setMessage("Sound the retreat on this — pause to strategize. 🛡️");
+      setMessage("Focus session paused. Let's take a quick break. 🧘");
     });
     const offTimerResume = bus.on("timer:resume", () => {
       setIsFocusing(true);
       setAnimation("read");
-      setMessage("Back to the front! Ride on! ⚔️");
+      setMessage("Focus session resumed! 🚀");
     });
     const offTimerStop = bus.on("timer:stop", () => {
       setIsFocusing(false);
       setAnimation("idle");
-      setMessage("The battle is won. Rest. Tomorrow we ride again. 🌙");
+      setMessage("Focus session completed! Great work! 🌙");
     });
 
     // Rotate idle messages
@@ -479,7 +479,7 @@ export default function PetCompanion() {
         }}
       >
         {/* Speech bubble */}
-        <div className="glass max-w-[190px] px-3 py-2 text-[11px] leading-snug text-realm-text font-lora italic relative shadow-lg">
+        <div className="glass max-w-[190px] px-3 py-2 text-[11px] leading-snug text-warm-text font-quick italic relative shadow-lg">
           <div className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-b border-r border-white/10 bg-void/90" />
           {message}
         </div>
@@ -570,10 +570,10 @@ export default function PetCompanion() {
 
           {/* Level Info */}
           <div className="text-right select-none opacity-80 pointer-events-none">
-            <div className="text-[9px] text-realm-muted font-bold uppercase tracking-wider font-quick">
+            <div className="text-[9px] text-warm-textMuted font-bold uppercase tracking-wider font-quick">
               {activePet.name}
             </div>
-            <div className="text-[10px] text-realm-gold font-mono font-bold">
+            <div className="text-[10px] text-warm-amber font-mono font-bold">
               Lv.{level}
             </div>
           </div>

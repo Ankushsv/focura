@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
-// Simple ID generator matching the lib
+// UUID generator matching the lib
 function uid() {
-  return Math.random().toString(36).slice(2, 10);
+  return randomUUID();
 }
 
 export async function POST(req: Request) {

@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
 import { useXp } from "@/components/providers/XpProvider";
 import { usePet } from "@/components/providers/PetProvider";
+import { useMorningBriefing } from "@/hooks/useMorningBriefing";
 import { levelProgress } from "@/lib/xp/levels";
 import { fireConfetti } from "@/lib/confetti";
 import { bus } from "@/lib/events";
 import type { Task, Energy } from "@/lib/tasks/types";
 import { CATEGORY_ICONS } from "@/lib/paths/types";
+import DayVessel from "@/components/dashboard/DayVessel";
 
 // Daily Quotes Pool
 const QUOTES = [
@@ -32,6 +36,8 @@ function getGreetingPhrase(): string {
 export default function DashboardPage() {
   const { totalXp, level, awardXp } = useXp();
   const { activePet, petStats, petUsage, feedPet } = usePet();
+  const { show: showBriefing, dismiss: dismissBriefing } = useMorningBriefing();
+  const router = useRouter();
   const progress = levelProgress(totalXp);
   const pct = Math.round((progress.current / progress.required) * 100);
 
@@ -137,13 +143,28 @@ export default function DashboardPage() {
             })));
           }
 
-          // 4. Load Mastery Paths
+          // 4. Load Mastery Paths with nodes
           const { data: dbPaths } = await supabase
             .from("paths")
             .select("*")
             .eq("user_id", supabaseUser.id);
+          const { data: dbNodes } = await supabase
+            .from("path_nodes")
+            .select("*")
+            .eq("user_id", supabaseUser.id);
           if (dbPaths) {
-            setPaths(dbPaths);
+            const mapped = dbPaths.map((p: any) => {
+              const nodes = (dbNodes || [])
+                .filter((n: any) => n.path_id === p.id)
+                .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+                .map((n: any) => ({
+                  id: n.id,
+                  label: n.label,
+                  status: n.status,
+                }));
+              return { ...p, nodes };
+            });
+            setPaths(mapped);
           }
 
           // 5. Load Weekly Goals (Challenges)
@@ -258,8 +279,9 @@ export default function DashboardPage() {
     if (paths.length === 0) return null;
     return paths
       .map(p => {
-        const done = p.nodes.filter((n: any) => n.status === "done").length;
-        const total = p.nodes.length;
+        const nodesList = p.nodes || [];
+        const done = nodesList.filter((n: any) => n.status === "done").length;
+        const total = nodesList.length;
         const percent = total > 0 ? Math.round((done / total) * 100) : 0;
         return { ...p, percent };
       })
@@ -270,214 +292,339 @@ export default function DashboardPage() {
   const activeUsage = petUsage[activePet.id] || { focusMinutes: 0, tasksDone: 0, xpEarned: 0 };
   const petLevel = Math.max(1, Math.floor(activeUsage.focusMinutes / 120) + 1);
 
-  // Ambient Message for Pet speech bubble
+  // Deadline-aware task data for morning briefing + pet messages
+  const todayTasks = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    return activeTasks.filter((t) => {
+      if (!t.due_date) return false;
+      const due = new Date(t.due_date);
+      return due >= todayStart && due <= todayEnd;
+    });
+  }, [activeTasks]);
+
+  const thisWeekTasks = useMemo(() => {
+    const weekEnd = new Date();
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    return activeTasks.filter((t) => {
+      if (!t.due_date) return false;
+      const due = new Date(t.due_date);
+      return due <= weekEnd;
+    });
+  }, [activeTasks]);
+
+  const tomorrowTasks = useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return activeTasks.filter((t) => {
+      if (!t.due_date) return false;
+      const due = new Date(t.due_date);
+      return (
+        due.getFullYear() === tomorrow.getFullYear() &&
+        due.getMonth() === tomorrow.getMonth() &&
+        due.getDate() === tomorrow.getDate()
+      );
+    });
+  }, [activeTasks]);
+
+  // Available focus hours estimate (wakeHour–sleepHour window × realistic ratio)
+  const availableFocusHours = useMemo(() => {
+    const wakeHour = 8;
+    const sleepHour = 23;
+    const now = new Date();
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    const remaining = Math.max(0, sleepHour - currentHour);
+    return (remaining * 0.6).toFixed(1);
+  }, []);
+
+  // Escape key handler for morning briefing
+  useEffect(() => {
+    if (!showBriefing) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissBriefing();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [showBriefing, dismissBriefing]);
+
+  // Familiar speech bubble — deadline takes priority over ambient
   const petAmbientMessage = useMemo(() => {
+    // Check sessionStorage to only show deadline messages once per session
+    const shownKey = "focura_pet_deadline_shown";
+    const alreadyShown = typeof window !== "undefined" && sessionStorage.getItem(shownKey);
+    if (!alreadyShown) {
+      if (todayTasks.length > 0) {
+        if (typeof window !== "undefined") sessionStorage.setItem(shownKey, "1");
+        return `"${todayTasks[0].title}" is due today. You've got this! 🔥`;
+      }
+      if (tomorrowTasks.length > 0) {
+        if (typeof window !== "undefined") sessionStorage.setItem(shownKey, "1");
+        return `"${tomorrowTasks[0].title}" is due tomorrow. Plan your time wisely ⏳`;
+      }
+    }
     if (todayCount >= focusGoal) return "Goal achieved! We're legendary today! 🏆";
     if (activeTasks.length === 0) return "Quests cleared! Rest up, partner ☕";
     if (petStats.energy < 30) return "A bit tired, but ready whenever you are 💤";
     return "Ready when you are — I'm here 🔥";
-  }, [todayCount, activeTasks.length, petStats.energy, focusGoal]);
+  }, [todayCount, activeTasks.length, petStats.energy, focusGoal, todayTasks, tomorrowTasks]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 animate-fade-in">
-      
-      {/* ── GREETING BANNER ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-realm-border bg-[#1a1714] p-6 sm:p-8 shadow-xl">
-        {/* Soft decorative glow spot */}
-        <div className="absolute -left-16 -top-16 h-36 w-36 rounded-full bg-[#f0a868]/5 blur-2xl pointer-events-none" />
-        <div className="absolute right-6 top-6 font-mono text-[10px] text-realm-muted uppercase tracking-wider hidden sm:block">
-          THE WAR ROOM ✦ COMMAND
-        </div>
+    <div className="mx-auto max-w-[1400px] w-full px-4 sm:px-8 space-y-8 animate-fade-in">
+      {/* ── Morning Briefing Modal ── */}
+      <MorningBriefingModal
+        show={showBriefing}
+        onDismiss={dismissBriefing}
+        onPlanDay={() => { dismissBriefing(); router.push("/app/timeline"); }}
+        todayTasks={todayTasks}
+        thisWeekCount={thisWeekTasks.length}
+        availableFocusHours={availableFocusHours}
+      />
 
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3">
+      {/* ── HEADER HERO PANEL ── */}
+      <section className="relative overflow-hidden rounded-3xl border border-warm-border bg-gradient-to-br from-warm-surface via-warm-surface to-warm-surface2/40 p-6 sm:p-8 shadow-xl">
+        <div className="absolute -left-16 -top-16 h-48 w-48 rounded-full bg-warm-amber/5 blur-3xl pointer-events-none" />
+        <div className="absolute -right-16 -bottom-16 h-48 w-48 rounded-full bg-warm-purple/5 blur-3xl pointer-events-none" />
+        
+        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+          <div className="space-y-4 max-w-2xl">
             <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-realm-gold animate-pulse" />
-              <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#f0a868]">
-                STORMBORN &middot; LEVEL {level}
+              <span className="h-2 w-2 rounded-full bg-warm-amber animate-pulse" />
+              <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-warm-amber">
+                ADVENTURER STATION &middot; PROFILE LEVEL {level}
               </p>
             </div>
             
-            {/* Time-aware Greeting */}
-            <h1 className="font-cinzel text-xl sm:text-3xl font-bold text-[#f5efe8] leading-tight">
+            <h1 className="font-space text-2xl sm:text-4xl font-extrabold text-warm-cream leading-none tracking-tight">
               {greetingLabel === "Good morning" ? (
-                <>Rise, <span className="text-[#f0a868]">{name}</span>. The realm needs you. ☀️</>
+                <>Welcome back, <span className="text-warm-amber">{name}</span>. Let's make today count. ☀️</>
               ) : greetingLabel === "Good afternoon" ? (
-                <>The day is half-won, <span className="text-[#f0a868]">{name}</span>. ⚔️</>
-              ) : greetingLabel === "Good evening" ? (
-                <>The fog thickens at dusk, <span className="text-[#f0a868]">{name}</span>. 🌙</>
+                <>Good afternoon, <span className="text-warm-amber">{name}</span>. Keep up the momentum. ⚡</>
               ) : (
-                <>The brave ones ride at night, <span className="text-[#f0a868]">{name}</span>. 🌑</>
+                <>Good evening, <span className="text-warm-amber">{name}</span>. Time to wrap up. 🌙</>
               )}
             </h1>
-            <p className="font-lora italic text-xs sm:text-sm text-realm-muted">
-              &ldquo;Your mind moves like lightning, and your legend begins here.&rdquo;
+            <p className="font-quick text-sm sm:text-base text-warm-textMuted leading-relaxed">
+              &ldquo;{quote.text}&rdquo; <span className="text-warm-amber font-medium font-space text-xs uppercase tracking-wider">— {quote.author}</span>
             </p>
           </div>
 
-          {/* Quick Level Status badge */}
-          <div className="flex items-center gap-4 bg-[#141210] border border-realm-border rounded-xl p-4 shrink-0 hover:border-[#f0a868]/30 transition duration-300">
-            <div className="relative h-12 w-12 shrink-0 flex items-center justify-center rounded-full bg-[#0e0c0a] border border-realm-border">
-              {/* Mini SVG Progress around Level */}
-              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.01)" strokeWidth="2" />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  stroke="#f0a868"
-                  strokeWidth="2.5"
-                  strokeDasharray="100"
-                  strokeDashoffset={100 - pct}
-                  strokeLinecap="round"
-                  className="transition-all duration-1000 ease-out"
-                  style={{ transform: "rotate(-90deg)", transformOrigin: "18px 18px" }}
-                />
-              </svg>
-              <span className="text-sm font-mono font-bold text-[#f0a868]">{level}</span>
-            </div>
-            <div>
-              <p className="text-[9px] font-mono uppercase tracking-widest text-realm-muted">Level Progress</p>
-              <h4 className="font-quick font-bold text-xs text-[#f5efe8] mt-0.5">{pct}% to Level {level + 1}</h4>
-              <p className="text-[9px] text-realm-muted font-mono mt-0.5">{totalXp} LP accumulated</p>
+          <div className="flex flex-col sm:flex-row gap-4 shrink-0">
+            {/* User Level progress bar */}
+            <div className="flex items-center gap-4 bg-warm-surface2/60 border border-warm-border/60 rounded-2xl p-4 hover:border-warm-amber/30 transition duration-300">
+              <div className="relative h-14 w-14 shrink-0 flex items-center justify-center rounded-full bg-warm-bg/85 border border-warm-border">
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.01)" strokeWidth="2.5" />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="16"
+                    fill="none"
+                    stroke="var(--color-warm-amber)"
+                    strokeWidth="2.5"
+                    strokeDasharray="100"
+                    strokeDashoffset={100 - pct}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-out"
+                    style={{ transform: "rotate(-90deg)", transformOrigin: "18px 18px" }}
+                  />
+                </svg>
+                <span className="text-sm font-mono font-bold text-warm-amber">{level}</span>
+              </div>
+              <div>
+                <p className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">Level Progression</p>
+                <h4 className="font-quick font-bold text-sm text-warm-text mt-0.5">{pct}% complete</h4>
+                <p className="text-[9px] text-warm-textMuted font-mono mt-0.5">{totalXp} Total XP</p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ── THE DAY'S QUEST BANNER (Main Quest) ── */}
-      <section className="relative overflow-hidden bg-[#1a1714] rounded-2xl border border-realm-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-md">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[#f0a868]/30 to-transparent" />
+      <section className="relative overflow-hidden bg-gradient-to-r from-warm-surface to-warm-surface2/50 rounded-2xl border border-warm-border p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-md">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-warm-amber/40 via-transparent to-transparent" />
         
         <div className="flex items-center gap-4">
-          <div className="h-10 w-10 shrink-0 rounded-full bg-[#f0a868]/15 border border-[#f0a868]/25 flex items-center justify-center text-lg">
-            ⚔️
+          <div className="h-12 w-12 shrink-0 rounded-2xl bg-warm-amber/10 border border-warm-amber/25 flex items-center justify-center text-xl shadow-inner">
+            🎯
           </div>
           <div>
-            <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#f0a868]">
-              THE DAY&apos;S QUEST
+            <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-warm-amber">
+              CURRENT FOCUS TARGET
             </p>
-            <h3 className="font-quick font-bold text-sm text-[#f5efe8] mt-0.5">
-              {mainQuest ? mainQuest.title : `The Scroll awaits your orders, ${name}.`}
+            <h3 className="font-space font-bold text-base text-warm-text mt-1">
+              {mainQuest ? mainQuest.title : "Your queue is clear. Time to rest or map a new quest."}
             </h3>
           </div>
         </div>
 
         <Link
           href={mainQuest ? `/app/timer?task=${mainQuest.id}` : "/app/tasks"}
-          className="font-quick font-bold text-xs uppercase tracking-widest text-[#0e0c0a] bg-[#f0a868] px-6 py-3 rounded-full hover:shadow-[0_0_20px_rgba(240,168,104,0.3)] transition duration-300 self-start sm:self-auto"
+          className="font-quick font-bold text-xs uppercase tracking-widest text-warm-bg bg-warm-amber px-8 py-3.5 rounded-full hover:shadow-[0_0_20px_rgba(240,168,104,0.2)] hover:scale-[1.02] transition duration-300 self-start md:self-auto text-center"
         >
-          {mainQuest ? "▶ Ride to Battle" : "Set today's quest →"}
+          {mainQuest ? "▶ Start Focus Timer" : "Set today's target →"}
         </Link>
       </section>
 
-      {/* ── THE SQUIRE'S TRIAL QUICKSTART ── */}
-      {!quickstartDismissed && !quickstartCompleted && (
-        <section className="bg-[#141210] rounded-2xl border border-realm-border p-6 relative shadow-md">
-          <button
-            onClick={dismissQuickstart}
-            className="absolute top-4 right-4 text-realm-muted hover:text-[#f5efe8] transition-colors text-xs font-quick font-bold"
-            aria-label="Dismiss Quickstart"
-          >
-            Dismiss
-          </button>
+      {/* ── THREE COLUMN COMMAND CENTER GRID ── */}
+      <div className="grid gap-6 xl:grid-cols-[1fr_380px_340px] lg:grid-cols-[1fr_340px] grid-cols-1">
+        
+        {/* ── COLUMN 1: QUESTS & CHECKS (Left) ── */}
+        <div className="space-y-6">
           
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#f0a868]">
-                THE SQUIRE'S TRIAL
-              </p>
-              <h2 className="font-quick font-bold text-lg text-[#f5efe8] mt-0.5">
-                Your First Victories
-              </h2>
+          {/* Active Quests Board */}
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-mono uppercase tracking-widest text-warm-amber">Quest Board</p>
+                <h2 className="font-space font-bold text-lg text-warm-text mt-0.5">Active Quests</h2>
+              </div>
+              <Link href="/app/tasks" className="text-xs text-warm-amber hover:underline font-bold font-quick">
+                Manage Quests →
+              </Link>
             </div>
-            <span className="rounded-full bg-[#0e0c0a] border border-realm-border px-3 py-1 text-xs font-mono text-realm-muted mr-16">
-              {completedCount}/3
-            </span>
-          </div>
 
-          <div className="space-y-3">
-            {[
-              {
-                id: "plan",
-                title: "Accept your first mission",
-                desc: "Go to The Scroll and select a mission",
-                xp: 25,
-                done: hasPlanned,
-                href: "/app/tasks",
-                btnText: "Go to The Scroll →",
-              },
-              {
-                id: "run",
-                title: "Enter your first Battle",
-                desc: "Ride to battle with a 25-minute focus session",
-                xp: 50,
-                done: hasRun,
-                href: "/app/timer",
-                btnText: "Start Battle →",
-              },
-              {
-                id: "tick",
-                title: "Light the Oath Fire",
-                desc: "Swear and honor your first consistency oath",
-                xp: 25,
-                done: hasTicked,
-                href: "/app/contracts",
-                btnText: "Swear Oath →",
-              },
-            ].map(item => (
-              <div
-                key={item.id}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between border border-realm-border bg-[#0e0c0a]/50 rounded-xl p-4 gap-4 transition duration-200 ${
-                  item.done ? "opacity-45" : "hover:border-[#f0a868]/30"
-                }`}
+            <div className="space-y-3">
+              {activeTasks.length === 0 ? (
+                <div className="border border-dashed border-warm-border bg-warm-surface2/30 rounded-xl p-8 text-center text-warm-textMuted">
+                  <p className="text-sm font-quick">No active quests right now.</p>
+                  <Link href="/app/tasks" className="text-xs text-warm-amber underline font-bold mt-2 inline-block">
+                    Create your first quest
+                  </Link>
+                </div>
+              ) : (
+                activeTasks.slice(0, 4).map(task => (
+                  <div key={task.id} className="flex items-center justify-between border border-warm-border/50 bg-warm-surface2/40 rounded-xl p-4 hover:border-warm-amber/20 transition duration-200">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs">
+                        {task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : "🟡"}
+                      </span>
+                      <div>
+                        <h4 className="font-quick font-bold text-sm text-warm-text">{task.title}</h4>
+                        <span className="text-[9px] text-warm-textMuted font-mono uppercase mt-0.5 block">{task.energy} energy &middot; +{task.xp} XP</span>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/app/timer?task=${task.id}`}
+                      className="rounded-full border border-warm-border bg-warm-surface hover:bg-warm-surface2 hover:border-warm-amber/30 text-warm-text px-3.5 py-1.5 text-[10px] font-quick font-bold transition duration-200"
+                    >
+                      ▶ focus
+                    </Link>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Squire's Checklist */}
+          {!quickstartDismissed && !quickstartCompleted && (
+            <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-md relative">
+              <button
+                onClick={dismissQuickstart}
+                className="absolute top-4 right-4 text-warm-textMuted hover:text-warm-text transition-colors text-xs font-mono font-bold"
+                aria-label="Dismiss Quickstart"
               >
-                <div className="flex items-center gap-3">
+                CLOSE
+              </button>
+              
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-warm-amber">
+                    GETTING STARTED
+                  </p>
+                  <h2 className="font-space font-bold text-base text-warm-text mt-0.5">
+                    First Trials
+                  </h2>
+                </div>
+                <span className="rounded-full bg-warm-bg border border-warm-border px-2.5 py-0.5 text-[10px] font-mono text-warm-textMuted mr-12">
+                  {completedCount}/3
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {[
+                  {
+                    id: "plan",
+                    title: "Create your first task",
+                    desc: "Go to Tasks and add a task to get started",
+                    xp: 25,
+                    done: hasPlanned,
+                    href: "/app/tasks",
+                    btnText: "Go to Tasks →",
+                  },
+                  {
+                    id: "run",
+                    title: "Complete your first focus block",
+                    desc: "Start a 25-minute focus session with the timer",
+                    xp: 50,
+                    done: hasRun,
+                    href: "/app/timer",
+                    btnText: "Start Timer →",
+                  },
+                  {
+                    id: "tick",
+                    title: "Create a contract",
+                    desc: "Swear and honor your first consistency contract",
+                    xp: 25,
+                    done: hasTicked,
+                    href: "/app/contracts",
+                    btnText: "View Contracts →",
+                  },
+                ].map(item => (
                   <div
-                    className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-xs font-bold ${
-                      item.done
-                        ? "bg-[#5eead4] border-[#5eead4] text-[#0e0c0a]"
-                        : "border-realm-border text-[#f0a868]/60"
+                    key={item.id}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between border border-warm-border/50 bg-warm-surface2/30 rounded-xl p-3.5 gap-3 transition duration-200 ${
+                      item.done ? "opacity-45" : "hover:border-warm-amber/20"
                     }`}
                   >
-                    {item.done ? "✓" : "⚔️"}
-                  </div>
-                  <div>
-                    <h3 className={`font-quick font-bold text-sm text-[#f5efe8] ${item.done ? "line-through text-realm-muted" : ""}`}>
-                      {item.title}
-                    </h3>
-                    <p className="font-sans text-xs text-realm-muted mt-0.5">{item.desc}</p>
-                  </div>
-                </div>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                          item.done
+                            ? "bg-warm-teal border-warm-teal text-warm-bg"
+                            : "border-warm-border text-warm-amber/60"
+                        }`}
+                      >
+                        {item.done ? "✓" : "⚡"}
+                      </div>
+                      <div>
+                        <h3 className={`font-quick font-bold text-xs text-warm-text ${item.done ? "line-through text-warm-textMuted" : ""}`}>
+                          {item.title}
+                        </h3>
+                        <p className="font-sans text-[10px] text-warm-textMuted mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
 
-                <div className="flex items-center gap-4 self-end sm:self-auto">
-                  <span className="font-mono text-xs text-[#f0a868] font-bold">
-                    +{item.xp} LP
-                  </span>
-                  {!item.done && (
-                    <Link
-                      href={item.href}
-                      className="rounded-full bg-[#f5efe8]/10 border border-realm-border text-[#f5efe8] px-4 py-1.5 text-xs font-quick font-bold hover:bg-[#f5efe8]/20 transition duration-200"
-                    >
-                      {item.btnText}
-                    </Link>
-                  )}
-                </div>
+                    <div className="flex items-center gap-3 self-end sm:self-auto">
+                      <span className="font-mono text-[10px] text-warm-amber font-bold">
+                        +{item.xp} XP
+                      </span>
+                      {!item.done && (
+                        <Link
+                          href={item.href}
+                          className="rounded-full bg-warm-text/5 border border-warm-border text-warm-text px-3 py-1 text-[10px] font-quick font-bold hover:bg-warm-text/10 transition duration-200"
+                        >
+                          {item.btnText}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </section>
+          )}
+        </div>
 
-      {/* ── MAIN GRID ── */}
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-        
-        {/* LEFT COLUMN: BATTLE FURY RING + DAILY LORE */}
-        <section className="relative overflow-hidden bg-[#1a1714] rounded-2xl border border-realm-border p-6 flex flex-col md:flex-row items-center gap-8 shadow-lg">
-          <div className="flex flex-col items-center shrink-0 relative">
-            <div className="absolute inset-0 rounded-full bg-[#f0a868]/2 blur-xl pointer-events-none scale-90" />
-            
+        {/* ── COLUMN 2: ANALYTICS & ENERGY (Center) ── */}
+        <div className="space-y-6">
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 flex flex-col items-center gap-6 shadow-lg text-center">
+            <div>
+              <p className="text-[9px] font-mono uppercase tracking-widest text-warm-amber">Energy Balance</p>
+              <h2 className="font-space font-bold text-lg text-warm-text mt-0.5">Daily Focus Goal</h2>
+            </div>
+
             <div className="relative h-44 w-44">
               <svg className="h-full w-full" viewBox="0 0 160 160">
                 <circle
@@ -492,82 +639,51 @@ export default function DashboardPage() {
                   cx="80"
                   cy="80"
                   r="70"
-                  stroke="#f0a868"
+                  stroke="var(--color-warm-amber)"
                   strokeWidth="8"
                   fill="none"
                   strokeDasharray={strokeCircumference}
                   strokeDashoffset={strokeDashoffset}
                   strokeLinecap="round"
-                  className="transition-all duration-1000 ease-out drop-shadow-[0_0_10px_rgba(240,168,104,0.25)]"
+                  className="transition-all duration-1000 ease-out drop-shadow-[0_0_10px_rgba(240,168,104,0.15)]"
                   style={{ transform: "rotate(-90deg)", transformOrigin: "80px 80px" }}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-quick font-bold text-[#f5efe8]">
+                <span className="text-4xl font-space font-extrabold text-warm-text leading-none">
                   {todayCount}
-                  <span className="text-realm-muted text-lg">/{focusGoal}</span>
+                  <span className="text-warm-textMuted text-xl font-normal">/{focusGoal}</span>
                 </span>
-                <span className="text-[9px] font-quick font-bold uppercase tracking-widest text-[#f0a868] mt-1">
-                  BATTLE FURY
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-warm-amber mt-2">
+                  BLOCKS DONE
                 </span>
               </div>
             </div>
-          </div>
 
-          <div className="flex-1 space-y-5">
-            <div>
-              <h3 className="font-quick font-bold text-xl text-[#f5efe8] leading-none">
-                {new Date().toLocaleDateString("en-US", { weekday: "long" })}
-              </h3>
-              <p className="font-mono text-xs text-realm-muted mt-1.5">
-                {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+            <div className="w-full text-xs text-warm-textMuted font-sans border-t border-warm-border pt-4">
+              <p className="font-quick">
+                {Math.max(0, focusGoal - todayCount) > 0 ? (
+                  <>You need <span className="text-warm-amber font-bold font-mono">{Math.max(0, focusGoal - todayCount)}</span> more focus blocks to reach your daily goal.</>
+                ) : (
+                  <span className="text-warm-teal font-bold">Daily focus target achieved! Perfect consistency! 🎉</span>
+                )}
               </p>
-            </div>
-
-            {/* Rotating Lore Quote */}
-            <div className="border-l border-realm-border pl-4 py-1">
-              <blockquote className="font-lora italic text-[#f5efe8]/65 leading-relaxed text-sm">
-                &ldquo;{quote.text}&rdquo;
-              </blockquote>
-              <cite className="block text-[10px] text-realm-muted mt-2 not-italic font-quick uppercase tracking-wider">
-                — {quote.author}
-              </cite>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <Link
-                href="/app/timer"
-                className="rounded-full bg-[#f0a868] text-[#0e0c0a] px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_20px_rgba(240,168,104,0.3)] transition duration-200"
-              >
-                ▶ Ride to Battle
-              </Link>
-              <Link
-                href="/app/stats"
-                className="rounded-full border border-realm-border text-[#f5efe8] px-6 py-2.5 text-xs font-quick font-bold hover:bg-white/5 transition duration-200"
-              >
-                Reflect
-              </Link>
-            </div>
-
-            <div className="text-[11px] text-realm-muted font-sans">
-              <span>
-                {Math.max(0, focusGoal - todayCount)} battles to seal the day &middot;{" "}
-              </span>
+              
               <button
                 onClick={() => setShowMilestones(prev => !prev)}
-                className="underline hover:text-[#f5efe8] transition-colors"
+                className="mt-3 underline text-[10px] text-warm-textMuted hover:text-warm-text transition-colors font-mono uppercase tracking-wider block mx-auto"
               >
-                {showMilestones ? "view less" : "view milestones"}
+                {showMilestones ? "▲ hide history" : "▼ view today's sessions"}
               </button>
 
               {showMilestones && (
-                <div className="mt-3 space-y-2 border-t border-realm-border pt-3 animate-fade-in">
+                <div className="mt-3 space-y-2 border-t border-warm-border/50 pt-3 animate-fade-in text-left">
                   {todaySessions.length === 0 ? (
-                    <p className="italic text-realm-muted/40">No battles logged today yet.</p>
+                    <p className="italic text-center text-warm-textMuted/40 py-2">No focus blocks completed today.</p>
                   ) : (
                     todaySessions.map((s, idx) => (
-                      <div key={idx} className="flex justify-between text-[10px] text-realm-muted bg-[#141210] border border-realm-border rounded px-3 py-2">
-                        <span>⚔️ {s.taskTitle || "General Battle"}</span>
+                      <div key={idx} className="flex justify-between text-[10px] text-warm-textMuted bg-warm-surface2 border border-warm-border rounded-xl px-3 py-2">
+                        <span className="truncate max-w-[160px]">⚡ {s.taskTitle || "Focus Session"}</span>
                         <span className="font-mono">
                           {new Date(s.endedAt).toLocaleTimeString("en-US", {
                             hour: "2-digit",
@@ -580,128 +696,245 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* RIGHT COLUMN STACK */}
-        <aside className="space-y-6">
-          
-          {/* Card 1 — THE REALM THIS WEEK */}
-          <div className="bg-[#1a1714] rounded-2xl border border-realm-border p-5 space-y-4 shadow-md">
-            <h4 className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#f0a868]">
-              THIS WEEK &middot; GREAT QUESTS
+          {/* Quick Actions Shortcuts */}
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 space-y-3 shadow-md">
+            <h4 className="text-[10px] font-mono uppercase tracking-widest text-warm-textMuted">
+              Quick Shortcuts
             </h4>
-            {weeklyGoals.length === 0 ? (
-              <p className="font-sans text-xs text-realm-muted leading-relaxed">
-                No active quest targets for this week. Align your blade by{" "}
-                <Link href="/app/paths" className="text-[#f0a868] underline font-semibold">
-                  setting goals
-                </Link>{" "}
-                in The Great Quests.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {weeklyGoals.map((goal, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <p className="text-xs text-[#f5efe8] font-quick font-bold">{goal}</p>
-                    <div className="h-1 bg-[#141210] rounded-full overflow-hidden">
-                      {/* Simulated gold progress bars */}
-                      <div 
-                        className="h-full bg-gradient-to-r from-[#f0a868] to-[#f0a868]/70"
-                        style={{ width: `${35 + (idx * 20) % 65}%` }} 
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link href="/app/timer" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
+                ⏱️ Timer
+              </Link>
+              <Link href="/app/music" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
+                🎵 Music
+              </Link>
+              <Link href="/app/coach" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
+                🤖 AI Coach
+              </Link>
+              <Link href="/app/challenges" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
+                🏆 Arena
+              </Link>
+            </div>
+          </section>
+        </div>
 
-          {/* Card 2 — THE OATH FIRE */}
-          <div className="bg-[#1a1714] rounded-2xl border border-realm-border p-5 flex items-center justify-between shadow-md">
-            <div className="space-y-1">
-              <h4 className="text-[10px] font-quick font-bold uppercase tracking-widest text-realm-muted">
-                OATH FIRE &middot; STREAK
+        {/* ── COLUMN 3: GAMIFICATION & STREAK (Right) ── */}
+        <div className="space-y-6 lg:col-span-2 xl:col-span-1">
+          
+          {/* Day Vessel */}
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-lg flex items-center justify-center relative overflow-hidden">
+            <div className="absolute top-0 right-0 h-16 w-16 bg-warm-purple/5 blur-xl pointer-events-none" />
+            <DayVessel wakeHour={8} sleepHour={23} />
+          </section>
+
+          {/* Oath Fire (Streak) */}
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 flex items-center justify-between shadow-md relative overflow-hidden">
+            <div className="space-y-1 relative z-10">
+              <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">
+                CONSISTENCY STREAK
               </h4>
-              <p className={`font-quick font-bold text-sm mt-1.5 ${streakDays > 0 ? "text-[#f0a868]" : "text-realm-muted"}`}>
-                {streakDays > 0 ? `${streakDays} days burning` : "The fire awaits your return."}
+              <p className={`font-space font-bold text-base mt-1 ${streakDays > 0 ? "text-warm-amber" : "text-warm-textMuted"}`}>
+                {streakDays > 0 ? `${streakDays} Day Streak` : "Active streak initialized"}
               </p>
             </div>
-            <div className="text-2xl">
-              <span className={streakDays > 0 ? "animate-pulse" : "opacity-30"}>🔥</span>
+            <div className="text-3xl relative z-10 bg-warm-surface2/60 h-12 w-12 rounded-xl flex items-center justify-center border border-warm-border/60 shadow-inner">
+              <span className={streakDays > 0 ? "animate-pulse" : "opacity-35"}>🔥</span>
             </div>
-          </div>
+          </section>
 
-          {/* Card 3 — YOUR GREAT QUEST */}
-          <div className="bg-[#1a1714] rounded-2xl border border-realm-border p-5 space-y-3 shadow-md">
-            <h4 className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#a78bfa]">
-              GREAT QUEST
+          {/* Active Mastery Path */}
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 space-y-3 shadow-md">
+            <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-purple">
+              ACTIVE PATHWAY
             </h4>
             {primaryPath ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-quick font-bold text-[#f5efe8] flex items-center gap-1.5">
+                  <span className="font-space font-bold text-warm-text flex items-center gap-1.5">
                     <span>{CATEGORY_ICONS[primaryPath.category as keyof typeof CATEGORY_ICONS]}</span>
-                    <span className="truncate max-w-[140px]">{primaryPath.title}</span>
+                    <span className="truncate max-w-[150px]">{primaryPath.title}</span>
                   </span>
-                  <span className="font-mono text-[10px] text-[#5eead4] font-bold">
+                  <span className="font-mono text-[10px] text-warm-teal font-bold">
                     {primaryPath.percent}%
                   </span>
                 </div>
-                <div className="h-1.5 bg-[#141210] rounded-full overflow-hidden">
+                <div className="h-2 bg-warm-surface2 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#5eead4] transition-all duration-700"
+                    className="h-full bg-warm-teal transition-all duration-700"
                     style={{ width: `${primaryPath.percent}%` }}
                   />
                 </div>
-                {/* Rank Mapping Squire -> Knight etc */}
-                <p className="text-[9px] text-realm-muted font-sans mt-1">
-                  Rank: {primaryPath.percent < 25 ? "Commoner &rarr; Squire" :
-                         primaryPath.percent < 50 ? "Squire &rarr; Knight" :
-                         primaryPath.percent < 75 ? "Knight &rarr; Champion" :
-                         primaryPath.percent < 100 ? "Champion &rarr; Legend" :
-                         "Legend &rarr; King/Queen"}
+                <p className="text-[9px] text-warm-textMuted font-mono uppercase mt-1">
+                  Rank: {primaryPath.percent < 25 ? "Novice" :
+                         primaryPath.percent < 50 ? "Apprentice" :
+                         primaryPath.percent < 75 ? "Practitioner" :
+                         primaryPath.percent < 100 ? "Specialist" :
+                         "Master"}
                 </p>
               </div>
             ) : (
-              <p className="text-xs text-realm-muted font-sans">
-                No active quests.{" "}
-                <Link href="/app/paths" className="text-[#f0a868] underline font-semibold">
-                  Begin a Quest
+              <p className="text-xs text-warm-textMuted font-sans">
+                No active paths.{" "}
+                <Link href="/app/paths" className="text-warm-amber underline font-semibold">
+                  Start a Path
                 </Link>
                 .
               </p>
             )}
-          </div>
+          </section>
 
-          {/* Card 4 — Demo LP Card */}
+          {/* Demo XP trigger (Practice) */}
           {!user && (
-            <div className="relative overflow-hidden bg-gradient-to-br from-[#a78bfa]/15 via-[#1a1714] to-[#1a1714] rounded-2xl border border-realm-border p-5 space-y-3 shadow-md">
-              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[#a78bfa]/30 to-transparent" />
-              <h4 className="text-[10px] font-quick font-bold uppercase tracking-widest text-[#a78bfa]">
-                DEMO PRACTICE
+            <section className="relative overflow-hidden bg-gradient-to-br from-warm-purple/10 via-warm-surface to-warm-surface border border-warm-border rounded-2xl p-5 space-y-3 shadow-md">
+              <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-purple">
+                DEMO LAB
               </h4>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <div>
-                  <p className="text-[9px] font-mono uppercase tracking-widest text-realm-muted">Practice Rewards</p>
-                  <p className="text-xs font-quick font-bold text-[#f5efe8] mt-1">{totalXp} Legend Points</p>
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">Demo Practice</p>
+                  <p className="text-xs font-quick font-bold text-warm-text mt-1">{totalXp} XP</p>
                 </div>
                 <button
                   onClick={() => {
                     awardXp(50, "demo");
                     fireConfetti();
-                    bus.emit("pet:react", { message: "A fine training session, knight! +50 LP!" });
+                    bus.emit("pet:react", { message: "Practice completed! +50 XP!" });
                   }}
-                  className="rounded-full bg-[#a78bfa] text-[#0e0c0a] px-4 py-2 text-[10px] font-quick font-bold hover:shadow-[0_0_15px_rgba(167,139,250,0.4)] transition duration-200"
+                  className="rounded-full bg-warm-purple text-warm-bg px-4 py-2 text-[10px] font-quick font-bold hover:shadow-[0_0_15px_rgba(167,139,250,0.4)] hover:scale-[1.02] transition duration-200"
                 >
-                  Earn Demo LP
+                  Earn Demo XP
                 </button>
               </div>
-            </div>
+            </section>
           )}
 
-        </aside>
+        </div>
+
       </div>
     </div>
+  );
+}
+
+// ─── Morning Briefing Modal ───────────────────────────────────────────────────
+function MorningBriefingModal({
+  show,
+  onDismiss,
+  onPlanDay,
+  todayTasks,
+  thisWeekCount,
+  availableFocusHours,
+}: {
+  show: boolean;
+  onDismiss: () => void;
+  onPlanDay: () => void;
+  todayTasks: Task[];
+  thisWeekCount: number;
+  availableFocusHours: string;
+}) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="briefing-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-[#0e0c0a]/80 backdrop-blur-sm"
+            onClick={onDismiss}
+          />
+
+          {/* Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              key="briefing-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Morning briefing"
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="pointer-events-auto w-full max-w-[480px] rounded-2xl border border-[rgba(255,245,235,0.08)] bg-[#1a1714] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+            >
+              {/* Header */}
+              <div className="mb-5">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#f0a868]/70 mb-1">
+                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                </p>
+                <h2 className="font-cinzel text-xl font-bold text-[#f5efe8]">
+                  Your Morning Briefing
+                </h2>
+                <p className="mt-1 text-xs font-quick text-[rgba(245,239,232,0.45)] italic">
+                  A knight who knows the battlefield wins before the fight begins.
+                </p>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                {/* Today's tasks */}
+                <div className="rounded-xl border border-[#f87171]/20 bg-[#f87171]/5 px-4 py-3">
+                  <p className="text-[10px] font-quick font-bold uppercase tracking-wider text-[#f87171] mb-1.5">
+                    ● Due Today
+                  </p>
+                  {todayTasks.length === 0 ? (
+                    <p className="text-sm font-quick text-[rgba(245,239,232,0.45)]">No tasks due today ✓</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {todayTasks.slice(0, 3).map((t) => (
+                        <li key={t.id} className="text-sm font-quick font-semibold text-[#f5efe8] flex items-center gap-2">
+                          <span className="text-[#f87171]">&rsaquo;</span> {t.title}
+                        </li>
+                      ))}
+                      {todayTasks.length > 3 && (
+                        <li className="text-xs font-quick text-[rgba(245,239,232,0.45)]">
+                          +{todayTasks.length - 3} more tasks due today
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+
+                {/* This week */}
+                <div className="rounded-xl border border-[#f0a868]/20 bg-[#f0a868]/5 px-4 py-3 flex items-center justify-between">
+                  <p className="text-sm font-quick text-[rgba(245,239,232,0.7)]">
+                    Tasks due this week
+                  </p>
+                  <span className="font-mono font-bold text-[#f0a868]">{thisWeekCount}</span>
+                </div>
+
+                {/* Available focus hours */}
+                <div className="rounded-xl border border-[rgba(255,245,235,0.07)] bg-[rgba(255,245,235,0.03)] px-4 py-3 flex items-center justify-between">
+                  <p className="text-sm font-quick text-[rgba(245,239,232,0.7)]">
+                    Available focus hours today
+                  </p>
+                  <span className="font-mono font-bold text-[#5eead4]">{availableFocusHours}h</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3">
+                <button
+                  autoFocus
+                  onClick={onPlanDay}
+                  className="flex-1 rounded-xl bg-[#f0a868] py-2.5 text-sm font-quick font-bold text-[#0e0c0a] hover:shadow-[0_0_20px_rgba(240,168,104,0.2)] transition"
+                >
+                  Plan my day →
+                </button>
+                <button
+                  onClick={onDismiss}
+                  className="rounded-xl border border-[rgba(255,245,235,0.08)] px-4 py-2.5 text-sm font-quick text-[rgba(245,239,232,0.45)] hover:text-[rgba(245,239,232,0.7)] transition"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }

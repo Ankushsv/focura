@@ -2,14 +2,16 @@ export default function Vessel({
   progress,
   colors,
   glow,
-  size = 260,
+  size = 320,
   mini = false,
+  timeLabel,
 }: {
   progress: number;
   colors: [string, string];
   glow: string;
   size?: number;
   mini?: boolean;
+  timeLabel?: string;
 }) {
   const r = size / 2 - 4;
   const c = 2 * Math.PI * r;
@@ -64,8 +66,13 @@ export default function Vessel({
       </svg>
 
       {!mini && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-3xl font-bold drop-shadow-lg">{Math.round(progress)}%</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
+          <span className="text-5xl font-black drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] tabular-nums">{Math.round(progress)}%</span>
+          {timeLabel && (
+            <span className="text-sm font-mono font-bold text-white/70 mt-1 drop-shadow-[0_1px_5px_rgba(0,0,0,0.5)] tracking-wider">
+              {timeLabel}
+            </span>
+          )}
         </div>
       )}
     </div>
