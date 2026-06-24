@@ -21,7 +21,7 @@ Apply the database schema by running `supabase/migrations/0001_core_schema.sql` 
 
 ## Structure
 
-- `/` — public landing page (GSAP)
+- `/` — public landing page (GSAP)....
 - `/login` — auth
 - `/app` — the Focura shell: Dashboard, Mastery Paths, Contracts, Focus Timer, Tasks, Challenges, Stats, Rewards, AI Coach, Focus Memory, Music
 
