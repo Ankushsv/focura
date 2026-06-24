@@ -54,6 +54,13 @@ export interface TimerContextValue {
   progress: number;
   phase: Phase;
 
+  activeBlockId: string | null;
+  setActiveBlockId: (id: string | null) => void;
+  sessionStartTime: number | null;
+  pauses: { startOffsetSeconds: number; durationSeconds: number }[];
+  currentPauseStartTime: number | null;
+  isLoaded: boolean;
+
   setTaskId: (id: string | null) => void;
   setMinutes: (m: number) => void;
   setCycleMode: (mode: CycleMode) => void;
@@ -95,6 +102,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [stage, setStage] = useState<TimerStage>("setup");
   const [taskId, setTaskId] = useState<string | null>(null);
 
+  // ─── Active Timeline Block & Pause Tracking States ─────────────────────────
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [pauses, setPauses] = useState<{ startOffsetSeconds: number; durationSeconds: number }[]>([]);
+  const [currentPauseStartTime, setCurrentPauseStartTime] = useState<number | null>(null);
+
   const activeTasks = tasks ? tasks.filter((t) => !t.done) : [];
   const task = tasks ? (tasks.find((t) => t.id === taskId) ?? activeTasks[0]) : undefined;
   const taskTitle = task?.title ?? "Free focus";
@@ -119,6 +132,143 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [taskCompletedChoice, setTaskCompletedChoice] = useState<boolean | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [claimed, setClaimed] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load and save timer & active block state to/from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cachedStage = localStorage.getItem("focura.timer.stage");
+    const cachedTaskId = localStorage.getItem("focura.timer.taskId");
+    const cachedMinutes = localStorage.getItem("focura.timer.minutes");
+    const cachedElapsed = localStorage.getItem("focura.timer.elapsed");
+    const cachedRunning = localStorage.getItem("focura.timer.running");
+
+    const cachedBlockId = localStorage.getItem("focura.timer.activeBlockId");
+    const cachedStartTime = localStorage.getItem("focura.timer.sessionStartTime");
+    const cachedPauses = localStorage.getItem("focura.timer.pauses");
+    const cachedPauseStartTime = localStorage.getItem("focura.timer.currentPauseStartTime");
+
+    const cachedIsBreakMode = localStorage.getItem("focura.timer.isBreakMode");
+    const cachedBreakElapsed = localStorage.getItem("focura.timer.breakElapsed");
+    const cachedBreakDuration = localStorage.getItem("focura.timer.breakDuration");
+    const cachedBreakCycleCount = localStorage.getItem("focura.timer.breakCycleCount");
+
+    if (cachedStage) setStage(cachedStage as any);
+    if (cachedTaskId) setTaskId(cachedTaskId);
+    if (cachedMinutes) setMinutes(Number(cachedMinutes));
+    if (cachedElapsed) setElapsed(Number(cachedElapsed));
+    if (cachedRunning === "true") setRunning(true);
+
+    if (cachedBlockId) setActiveBlockId(cachedBlockId);
+    if (cachedStartTime) setSessionStartTime(Number(cachedStartTime));
+    if (cachedPauses) {
+      try {
+        setPauses(JSON.parse(cachedPauses));
+      } catch (e) {
+        console.warn("Error parsing pauses cache:", e);
+      }
+    }
+    if (cachedPauseStartTime) setCurrentPauseStartTime(Number(cachedPauseStartTime));
+
+    if (cachedIsBreakMode === "true") setIsBreakMode(true);
+    if (cachedBreakElapsed) setBreakElapsed(Number(cachedBreakElapsed));
+    if (cachedBreakDuration) setBreakDuration(Number(cachedBreakDuration));
+    if (cachedBreakCycleCount) setBreakCycleCount(Number(cachedBreakCycleCount));
+
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.stage", stage);
+  }, [stage, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    if (taskId) localStorage.setItem("focura.timer.taskId", taskId);
+    else localStorage.removeItem("focura.timer.taskId");
+  }, [taskId, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.minutes", String(minutes));
+  }, [minutes, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.elapsed", String(elapsed));
+  }, [elapsed, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.running", String(running));
+  }, [running, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    if (activeBlockId) localStorage.setItem("focura.timer.activeBlockId", activeBlockId);
+    else localStorage.removeItem("focura.timer.activeBlockId");
+  }, [activeBlockId, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    if (sessionStartTime) localStorage.setItem("focura.timer.sessionStartTime", String(sessionStartTime));
+    else localStorage.removeItem("focura.timer.sessionStartTime");
+  }, [sessionStartTime, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.pauses", JSON.stringify(pauses));
+  }, [pauses, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    if (currentPauseStartTime) localStorage.setItem("focura.timer.currentPauseStartTime", String(currentPauseStartTime));
+    else localStorage.removeItem("focura.timer.currentPauseStartTime");
+  }, [currentPauseStartTime, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.isBreakMode", String(isBreakMode));
+  }, [isBreakMode, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.breakElapsed", String(breakElapsed));
+  }, [breakElapsed, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.breakDuration", String(breakDuration));
+  }, [breakDuration, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    localStorage.setItem("focura.timer.breakCycleCount", String(breakCycleCount));
+  }, [breakCycleCount, isLoaded]);
+
+  // Monitor pause and resume events to record pause durations
+  useEffect(() => {
+    if (stage !== "session" || isBreakMode) return;
+    if (!running) {
+      setCurrentPauseStartTime(prev => prev || Date.now());
+      bus.emit("timer:pause", {});
+    } else {
+      setCurrentPauseStartTime(prev => {
+        if (prev && sessionStartTime) {
+          const now = Date.now();
+          const durationMs = now - prev;
+          const startOffsetSeconds = Math.round((prev - sessionStartTime) / 1000);
+          const durationSeconds = Math.round(durationMs / 1000);
+          if (durationSeconds > 0) {
+            setPauses(p => [...p, { startOffsetSeconds, durationSeconds }]);
+          }
+        }
+        return null;
+      });
+      bus.emit("timer:resume", {});
+    }
+  }, [running, stage, isBreakMode, sessionStartTime]);
 
   const prevPhaseRef = useRef(0);
   const broadcastRef = useRef<BroadcastChannel | null>(null);
@@ -244,6 +394,94 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Timer control ─────────────────────────────────────────────────────────
+  const syncCompleteBlock = useCallback(async () => {
+    if (!activeBlockId || !sessionStartTime) return;
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const { timeToMinutes, minutesToTime } = await import("@/lib/timeline/types");
+      const supabase = createClient();
+
+      const finalPauses = [...pauses];
+      if (currentPauseStartTime) {
+        const durationMs = Date.now() - currentPauseStartTime;
+        const startOffsetSeconds = Math.round((currentPauseStartTime - sessionStartTime) / 1000);
+        finalPauses.push({
+          startOffsetSeconds,
+          durationSeconds: Math.round(durationMs / 1000),
+        });
+      }
+
+      const totalWallClockMins = Math.max(1, Math.ceil((Date.now() - sessionStartTime) / 60000));
+
+      const { data: blockData } = await supabase
+        .from("timeline_blocks")
+        .select("planned_duration_minutes, date, start_time, user_id")
+        .eq("id", activeBlockId)
+        .single();
+
+      if (blockData) {
+        const plannedDuration = blockData.planned_duration_minutes;
+        const overrun = totalWallClockMins - plannedDuration;
+        const status = totalWallClockMins < plannedDuration
+          ? "completed"
+          : overrun > 5
+          ? "overran"
+          : "completed";
+
+        const updatePayload: any = {
+          status,
+          actual_duration_minutes: totalWallClockMins,
+          planned_duration_minutes: status === "overran" ? totalWallClockMins : plannedDuration,
+        };
+
+        try {
+          updatePayload.pauses = finalPauses;
+          await supabase.from("timeline_blocks").update(updatePayload).eq("id", activeBlockId);
+        } catch {
+          delete updatePayload.pauses;
+          await supabase.from("timeline_blocks").update(updatePayload).eq("id", activeBlockId);
+        }
+
+        if (status === "overran" && overrun > 0) {
+          const { data: siblingBlocks } = await supabase
+            .from("timeline_blocks")
+            .select("*")
+            .eq("user_id", blockData.user_id)
+            .eq("date", blockData.date)
+            .neq("id", activeBlockId);
+
+          if (siblingBlocks) {
+            const pushable = siblingBlocks
+              .filter(b => timeToMinutes(b.start_time) >= (timeToMinutes(blockData.start_time) + plannedDuration))
+              .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+
+            for (const sibling of pushable) {
+              const currentStartMins = timeToMinutes(sibling.start_time);
+              const newStartMins = currentStartMins + overrun;
+              await supabase
+                .from("timeline_blocks")
+                .update({ start_time: minutesToTime(newStartMins) })
+                .eq("id", sibling.id);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to sync active timeline block completion:", err);
+    } finally {
+      setActiveBlockId(null);
+      setSessionStartTime(null);
+      setPauses([]);
+      setCurrentPauseStartTime(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("focura.timer.activeBlockId");
+        localStorage.removeItem("focura.timer.sessionStartTime");
+        localStorage.removeItem("focura.timer.pauses");
+        localStorage.removeItem("focura.timer.currentPauseStartTime");
+      }
+    }
+  }, [activeBlockId, sessionStartTime, pauses, currentPauseStartTime]);
+
   function begin() {
     prevPhaseRef.current = 0;
     setElapsed(0);
@@ -257,12 +495,84 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     setTimeout(() => {
       setStage("session");
       setRunning(true);
+      const startTime = Date.now();
+      setSessionStartTime(startTime);
+      setPauses([]);
+      setCurrentPauseStartTime(null);
+
+      // Auto-create active timeline block if starting directly from focus timer page
+      if (!activeBlockId) {
+        void (async () => {
+          try {
+            const { createClient } = await import("@/lib/supabase/client");
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const now = new Date();
+            const localDateStr = now.toLocaleDateString("sv-SE");
+            const localTimeStr = now.toTimeString().split(" ")[0];
+
+            const { data, error } = await supabase
+              .from("timeline_blocks")
+              .insert({
+                user_id: user.id,
+                date: localDateStr,
+                block_type: "focus",
+                task_id: taskId || null,
+                start_time: localTimeStr,
+                planned_duration_minutes: minutes,
+                status: "active",
+                layer: "plan",
+              })
+              .select()
+              .single();
+
+            if (!error && data) {
+              setActiveBlockId(data.id);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("focura.timer.activeBlockId", data.id);
+                localStorage.setItem("focura.timer.sessionStartTime", String(startTime));
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to auto-create timeline block for active timer:", e);
+          }
+        })();
+      } else {
+        // If activeBlockId exists, update the existing planned block to active
+        void (async () => {
+          try {
+            const { createClient } = await import("@/lib/supabase/client");
+            const supabase = createClient();
+            const now = new Date();
+            const localTimeStr = now.toTimeString().split(" ")[0];
+
+            await supabase
+              .from("timeline_blocks")
+              .update({
+                status: "active",
+                start_time: localTimeStr,
+                planned_duration_minutes: minutes,
+              })
+              .eq("id", activeBlockId);
+
+            if (typeof window !== "undefined") {
+              localStorage.setItem("focura.timer.sessionStartTime", String(startTime));
+            }
+          } catch (e) {
+            console.warn("Failed to set active block state in DB on begin:", e);
+          }
+        })();
+      }
+
       bus.emit("timer:start", {});
       startSelectedSoundscape();
     }, 2800);
   }
 
   function handleFocusEnd() {
+    void syncCompleteBlock();
     setRunning(false);
     sound.stopAmbient();
     audioEngine.stop();
@@ -277,7 +587,6 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       actualMinutes: minsFocused,
       endedAt: Date.now(),
     });
-    // Feature: Time Cost System — update calibration history
     if (taskId && minsFocused > 0) {
       updateTimeCalibration(taskId, minsFocused);
     }
@@ -305,6 +614,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }
 
   function transitionToComplete(finalElapsed: number) {
+    void syncCompleteBlock();
     setRunning(false);
     sound.stopAmbient();
     audioEngine.stop();
@@ -319,7 +629,6 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       actualMinutes: minsFocused,
       endedAt: Date.now(),
     });
-    // Feature: Time Cost System — update calibration history
     if (taskId && minsFocused > 0) {
       updateTimeCalibration(taskId, minsFocused);
     }
@@ -361,6 +670,29 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     setTaskCompletedChoice(null);
     setStage("setup");
     bus.emit("timer:stop", {});
+
+    if (activeBlockId) {
+      void (async () => {
+        try {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          await supabase.from("timeline_blocks").update({ status: "planned" }).eq("id", activeBlockId);
+        } catch (err) {
+          console.warn("Failed to revert active block on reset:", err);
+        } finally {
+          setActiveBlockId(null);
+          setSessionStartTime(null);
+          setPauses([]);
+          setCurrentPauseStartTime(null);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("focura.timer.activeBlockId");
+            localStorage.removeItem("focura.timer.sessionStartTime");
+            localStorage.removeItem("focura.timer.pauses");
+            localStorage.removeItem("focura.timer.currentPauseStartTime");
+          }
+        }
+      })();
+    }
   }
 
   const value: TimerContextValue = {
@@ -368,6 +700,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     selectedSoundscapeId, isBreakMode, breakElapsed, breakDuration, breakCycleCount,
     guard, petMsg, showStopConfirm, wasRunningBeforeConfirm, actualMinutesFocused,
     taskCompletedChoice, rating, claimed, duration, remaining, progress, phase,
+    activeBlockId, setActiveBlockId, sessionStartTime, pauses, currentPauseStartTime,
+    isLoaded,
     setTaskId, setMinutes, setCycleMode, setSelectedSoundscapeId, setMinimized,
     setMuted, setGuard, setRunning, setStage, setShowStopConfirm,
     setWasRunningBeforeConfirm, setTaskCompletedChoice,
