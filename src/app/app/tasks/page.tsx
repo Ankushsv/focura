@@ -37,6 +37,7 @@ export default function TasksPage() {
     energy,
     setEnergy,
     addTask,
+    deleteTask,
     completeTask,
     toggleSubtask,
     applyBreakdown,
@@ -110,6 +111,13 @@ export default function TasksPage() {
     bus.emit("task:completed", { task });
     bus.emit("pet:react", {
       message: task.isBoss ? "Milestone task completed! High-five!" : "Task completed. One step closer!",
+    });
+  }
+
+  function handleDelete(task: Task) {
+    void deleteTask(task.id);
+    bus.emit("pet:react", {
+      message: "Task deleted from your chronicle.",
     });
   }
 
@@ -364,6 +372,7 @@ export default function TasksPage() {
                 onStuck={handleStuck}
                 onMemory={(t, note) => setMemoryNote(t.id, note)}
                 onRate={(t, n) => rateDifficulty(t.id, n)}
+                onDelete={handleDelete}
               />
             </section>
           ) : (
@@ -412,6 +421,7 @@ export default function TasksPage() {
                         onStuck={handleStuck}
                         onMemory={(task, note) => setMemoryNote(task.id, note)}
                         onRate={(task, n) => rateDifficulty(task.id, n)}
+                        onDelete={handleDelete}
                       />
                     </div>
                   );
@@ -441,6 +451,7 @@ export default function TasksPage() {
                       onStuck={() => {}}
                       onMemory={() => {}}
                       onRate={() => {}}
+                      onDelete={handleDelete}
                     />
                   </div>
                 ))}

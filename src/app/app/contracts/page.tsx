@@ -9,15 +9,16 @@ import Card from "@/components/ui/Card";
 import {
   FREQ_LABELS,
   hasCheckedInToday,
-  last14Days,
+  getContractProgress,
+  todayStr,
   type ContractFrequency,
 } from "@/lib/contracts/types";
-import { IconShield, IconFlame, IconBook, IconSkull, IconSword } from "@tabler/icons-react";
+import { IconShield, IconFlame, IconBook, IconSkull, IconSword, IconTrash, IconCheck } from "@tabler/icons-react";
 
 const FREQUENCIES: ContractFrequency[] = ["daily", "weekdays", "weekly"];
 
 export default function ContractsPage() {
-  const { contracts, loaded, addContract, checkIn, burnShield, deleteContract } =
+  const { contracts, loaded, error, addContract, checkIn, restartContract, deleteContract } =
     useContracts();
   const { awardXp } = useXp();
 
@@ -70,22 +71,26 @@ export default function ContractsPage() {
   function handleCheckIn(contractId: string) {
     setCheckingIn(contractId);
     setTimeout(() => {
-      const xp = checkIn(contractId);
-      if (xp > 0) {
-        awardXp(xp, "contracts");
+      const { xpEarned, isCompleted } = checkIn(contractId);
+      if (xpEarned > 0) {
+        awardXp(xpEarned, "contracts");
         fireConfetti();
-        bus.emit("pet:react", { message: "Consistency strengthened! 🛡️" });
+        if (isCompleted) {
+          bus.emit("pet:react", { message: "OATH FULFILLED! You finished the 21-day challenge! 🏆" });
+        } else {
+          bus.emit("pet:react", { message: "Consistency strengthened! 🛡️" });
+        }
       }
       setCheckingIn(null);
     }, 350);
   }
 
-  function handleBurnShield(contractId: string) {
-    burnShield(contractId);
-    bus.emit("pet:react", { message: "Safety Shield used — remember to stay consistent. 💔" });
+  function handleRestart(contractId: string) {
+    if (confirm("Are you sure you want to restart this habit contract back to Day 1? Your current progress will be reset.")) {
+      void restartContract(contractId);
+      bus.emit("pet:react", { message: "Contract restarted. A fresh start begins today! 🌅" });
+    }
   }
-
-  const days14 = last14Days();
 
   if (!loaded) {
     return (
@@ -97,6 +102,16 @@ export default function ContractsPage() {
 
   return (
     <div className="min-h-screen bg-warm-bg px-4 py-6 sm:px-8 space-y-8">
+      {error && (
+        <div className="mx-auto max-w-[1400px] rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200 shadow-md">
+          <p className="font-bold flex items-center gap-2">
+            <span>⚠️</span> Database Sync Error: {error}
+          </p>
+          <p className="text-xs text-red-300/80 mt-1">
+            Please make sure that the database tables and constraints are correctly configured in Supabase.
+          </p>
+        </div>
+      )}
       {/* ── Consistency Hero ── */}
       <div className="relative mx-auto mb-10 max-w-[1400px]">
         <div className="relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface px-8 py-10 shadow-2xl">
@@ -285,15 +300,28 @@ export default function ContractsPage() {
       {contracts.length > 0 && (
         <div className="relative mx-auto max-w-[1400px] space-y-6">
           {contracts.map((contract) => {
+            const today = todayStr();
+            const progress = getContractProgress(contract, today);
+            const { shieldsUsed, streak, bestStreak, status, slots } = progress;
             const checkedInToday = hasCheckedInToday(contract);
-            const shieldsRemaining = contract.shieldsMax - contract.shieldsUsed;
-            const checkInSet = new Set(
-              contract.checkIns.filter((c) => c.done).map((c) => c.date)
-            );
+            const shieldsRemaining = contract.shieldsMax - shieldsUsed;
 
-            // Rebrand statuses: "Checked In" or "Pending"
-            const statusLabel = checkedInToday ? "Checked in" : "Pending check-in";
-            const statusColor = checkedInToday ? "border-warm-amber text-warm-amber bg-warm-amber/15" : "border-warm-border text-warm-textMuted bg-warm-surface2";
+            // Rebrand statuses based on status
+            let statusLabel = "Active";
+            let statusColor = "border-warm-amber text-warm-amber bg-warm-amber/15";
+            if (status === "completed") {
+              statusLabel = "Completed";
+              statusColor = "border-warm-teal text-warm-teal bg-warm-teal/15";
+            } else if (status === "broken") {
+              statusLabel = "Broken";
+              statusColor = "border-[#f87171]/40 text-[#f87171] bg-[#f87171]/10";
+            } else if (checkedInToday) {
+              statusLabel = "Checked in today";
+              statusColor = "border-warm-teal text-warm-teal bg-warm-teal/15";
+            } else {
+              statusLabel = "Pending check-in";
+              statusColor = "border-warm-border text-warm-textMuted bg-warm-surface2";
+            }
 
             return (
               <div
@@ -310,7 +338,7 @@ export default function ContractsPage() {
                           {FREQ_LABELS[contract.frequency]}
                         </span>
                         <span className="flex items-center gap-1.5 rounded-full border border-warm-amber/25 bg-warm-amber/15 px-2.5 py-0.5 text-[10px] font-quick font-bold text-warm-amber uppercase tracking-wider">
-                          <IconFlame className="h-3.5 w-3.5 animate-pulse" /> {contract.streak} day streak
+                          <IconFlame className="h-3.5 w-3.5 animate-pulse" /> {streak} day streak
                         </span>
                         <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-quick font-bold uppercase tracking-wider ${statusColor}`}>
                           {statusLabel}
@@ -321,11 +349,16 @@ export default function ContractsPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => deleteContract(contract.id)}
+                      onClick={() => {
+                        if (confirm("Are you sure you want to abandon and permanently delete this consistency contract?")) {
+                          deleteContract(contract.id);
+                          bus.emit("pet:react", { message: "Contract deleted. ✕" });
+                        }
+                      }}
                       className="rounded-lg p-1.5 text-warm-textMuted opacity-0 hover:bg-warm-surface2 hover:text-priority-critical group-hover:opacity-100 transition"
                       title="Abandon contract"
                     >
-                      ✕
+                      <IconTrash className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -334,7 +367,7 @@ export default function ContractsPage() {
                     {/* The Safety Shield */}
                     <div className="rounded-xl border border-warm-border bg-warm-surface2 p-3 flex flex-col justify-center">
                       <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted mb-2">
-                        The Safety Shield
+                        Safety Shields ({shieldsRemaining} / {contract.shieldsMax} left)
                       </div>
                       <div className="flex items-center gap-2">
                         {Array.from({ length: contract.shieldsMax }).map((_, i) => {
@@ -353,7 +386,7 @@ export default function ContractsPage() {
                           );
                         })}
                         <span className="text-[10px] font-quick font-bold text-warm-textMuted ml-2">
-                          {shieldsRemaining > 0 ? "Your contract holds." : "Shield broken!"}
+                          {status === "broken" ? "Contract Broken!" : shieldsRemaining > 0 ? "Shields active." : "Warning: No shields left!"}
                         </span>
                       </div>
                     </div>
@@ -364,54 +397,65 @@ export default function ContractsPage() {
                         Best Streak
                       </div>
                       <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-xl font-mono font-bold text-warm-amber">{contract.bestStreak}</span>
+                        <span className="text-xl font-mono font-bold text-warm-amber">{bestStreak}</span>
                         <span className="text-[10px] font-quick font-bold text-warm-textMuted uppercase tracking-wider">days active</span>
                       </div>
                     </div>
 
-                    {/* XP per Checkin */}
+                    {/* XP Reward info */}
                     <div className="rounded-xl border border-warm-border bg-warm-surface2 p-3">
                       <div className="text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted mb-1">
-                        Days completed
+                        Completion Reward
                       </div>
                       <div className="text-xl font-mono font-bold text-warm-amber mt-1">
-                        +{contract.xpPerCheckin}
-                        <span className="text-xs text-warm-textMuted ml-1.5 font-quick font-bold">XP per check-in</span>
+                        +200
+                        <span className="text-xs text-warm-textMuted ml-1.5 font-quick font-bold">XP completion bonus</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* 14-day heatmap */}
-                  <div className="border-t border-warm-border/50 pt-5 space-y-2">
-                    <div className="flex items-center gap-2 text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
-                      <span>Your record (Last 14 days)</span>
-                      <span className="text-warm-amber">
-                        {days14.filter((d) => checkInSet.has(d)).length} / 14 days
+                  {/* 21-Day Habit Journey Roadmap */}
+                  <div className="border-t border-warm-border/50 pt-5 space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted">
+                      <span>21-Day Habit Journey Roadmap</span>
+                      <span className="text-warm-amber font-mono font-bold">
+                        {slots.filter((s) => s.status === "checked").length} / 21 slots completed
                       </span>
                     </div>
-                    <div className="flex gap-1.5 overflow-x-auto py-1">
-                      {days14.map((day) => {
-                        const done = checkInSet.has(day);
-                        const isToday = day === new Date().toISOString().slice(0, 10);
+
+                    <div className="grid grid-cols-7 gap-2 max-w-lg mx-auto sm:mx-0 py-2">
+                      {slots.map((slot) => {
+                        let nodeStyle = "border-warm-border bg-warm-surface2 text-warm-textMuted/40";
+                        let nodeIcon = null;
+                        
+                        if (slot.status === "checked") {
+                          nodeStyle = "bg-warm-amber border-warm-amber text-warm-bg font-bold shadow-[0_0_8px_rgba(240,168,104,0.3)]";
+                          nodeIcon = <IconCheck className="h-3.5 w-3.5 stroke-[3]" />;
+                        } else if (slot.status === "missed") {
+                          nodeStyle = "border-l-2 border-r-2 border-dashed border-[#f87171]/50 bg-red-950/10 text-[#f87171]/70";
+                          nodeIcon = <span className="text-[10px]" title="Shield Used">🛡️</span>;
+                        } else if (slot.status === "pending") {
+                          nodeStyle = "border-2 border-warm-amber bg-warm-amber/10 text-warm-amber animate-pulse font-bold";
+                        } else {
+                          // Locked
+                          nodeStyle = "border border-warm-border bg-warm-surface2/30 text-warm-textHint/40";
+                        }
+
+                        const label = slot.label.split(" ")[1] || slot.label;
+
                         return (
                           <div
-                            key={day}
-                            title={day}
-                            className={`h-6 w-6 flex-shrink-0 rounded-md transition-all duration-300 ${
-                              done
-                                ? "shadow-[0_0_8px_rgba(240,168,104,0.25)]"
-                                : isToday
-                                ? "border border-warm-amber bg-warm-amber/15"
-                                : "border border-warm-border bg-warm-surface2"
-                            }`}
-                            style={
-                              done
-                                ? {
-                                    background: "var(--color-warm-amber)",
-                                  }
-                                : undefined
-                            }
-                          />
+                            key={slot.index}
+                            title={`${slot.label}: ${slot.status.toUpperCase()}${slot.date ? ` (${slot.date})` : ""}`}
+                            className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-xs transition-all duration-300 ${nodeStyle}`}
+                          >
+                            <span className="text-[9px] font-mono leading-none">{label}</span>
+                            {nodeIcon && (
+                              <div className="absolute -bottom-1 -right-1 bg-warm-surface rounded-full p-[1px] border border-warm-border flex items-center justify-center">
+                                {nodeIcon}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -419,31 +463,64 @@ export default function ContractsPage() {
 
                   {/* Actions row */}
                   <div className="flex flex-wrap items-center gap-3 border-t border-warm-border/50 pt-5">
-                    <button
-                      onClick={() => handleCheckIn(contract.id)}
-                      disabled={checkedInToday || checkingIn === contract.id}
-                      className={`relative flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-quick font-bold transition duration-200 active:scale-95 disabled:cursor-not-allowed ${
-                        checkedInToday
-                          ? "border border-warm-teal/30 bg-warm-teal/10 text-warm-teal"
-                          : "bg-warm-amber text-warm-bg hover:shadow-[0_0_15px_rgba(240,168,104,0.15)]"
-                      }`}
-                    >
-                      {checkingIn === contract.id ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-warm-bg border-t-transparent" />
-                      ) : checkedInToday ? (
-                        <><span>✓</span> Checked In Today</>
-                      ) : (
-                        <><span>🛡️</span> Check In</>
-                      )}
-                    </button>
+                    {status === "completed" && (
+                      <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 rounded-full border border-warm-teal/30 bg-warm-teal/10 px-5 py-2 text-xs font-quick font-bold text-warm-teal">
+                          <span>🏆</span> Oath Completed Successfully!
+                        </div>
+                        <button
+                          onClick={() => handleRestart(contract.id)}
+                          className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+                        >
+                          Start New 21-Day Cycle
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm("Are you sure you want to archive and remove this completed contract?")) {
+                              deleteContract(contract.id);
+                              bus.emit("pet:react", { message: "Contract archived in your hall of records. 📜" });
+                            }
+                          }}
+                          className="rounded-full bg-warm-surface2 border border-warm-border text-warm-textMuted px-5 py-2 text-xs font-quick font-bold hover:text-warm-text hover:bg-warm-surface transition"
+                        >
+                          Archive Contract
+                        </button>
+                      </div>
+                    )}
 
-                    <button
-                      onClick={() => handleBurnShield(contract.id)}
-                      disabled={shieldsRemaining === 0}
-                      className="rounded-full bg-warm-surface2 border border-warm-border text-warm-textMuted px-4 py-2 text-xs font-quick font-bold hover:text-priority-critical hover:bg-warm-surface transition disabled:opacity-20"
-                    >
-                      Simulate missed day (Test Shield crack)
-                    </button>
+                    {status === "broken" && (
+                      <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/15 px-5 py-2 text-xs font-quick font-bold text-red-400">
+                          <span>⚠️</span> Contract Broken (Shields Depleted)
+                        </div>
+                        <button
+                          onClick={() => handleRestart(contract.id)}
+                          className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+                        >
+                          Restart Habit Journey (Day 1)
+                        </button>
+                      </div>
+                    )}
+
+                    {status === "active" && (
+                      <button
+                        onClick={() => handleCheckIn(contract.id)}
+                        disabled={checkedInToday || checkingIn === contract.id}
+                        className={`relative flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-quick font-bold transition duration-200 active:scale-95 disabled:cursor-not-allowed ${
+                          checkedInToday
+                            ? "border border-warm-teal/30 bg-warm-teal/10 text-warm-teal"
+                            : "bg-warm-amber text-warm-bg hover:shadow-[0_0_15px_rgba(240,168,104,0.15)]"
+                        }`}
+                      >
+                        {checkingIn === contract.id ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-warm-bg border-t-transparent" />
+                        ) : checkedInToday ? (
+                          <><span>✓</span> Checked In Today</>
+                        ) : (
+                          <><span>🛡️</span> Check In</>
+                        )}
+                      </button>
+                    )}
                   </div>
                   
                   {/* AI Coach reflects (Roadmap insight block) */}
@@ -456,8 +533,16 @@ export default function ContractsPage() {
                         <p className="text-[10px] font-quick font-bold uppercase tracking-widest text-warm-purple">
                           AI Coach counsel:
                         </p>
-                        <p className="font-quick italic text-xs leading-relaxed text-warm-cream">
-                          &ldquo;You came back every single time. That is what builds lasting habits. One slip does not end your progress.&rdquo;
+                        <p className="font-quick italic text-xs leading-relaxed text-warm-cream font-medium font-quick">
+                          {status === "completed" ? (
+                            <>“Magnificent! You completed all 21 habit slots. This habit is now forged into your character. Archive it or restart a new cycle!”</>
+                          ) : status === "broken" ? (
+                            <>“The path of consistency has cracked. The shields are broken, but your journey does not end here. Restart your contract and rise again today.”</>
+                          ) : shieldsRemaining < contract.shieldsMax ? (
+                            <>“Shields have been depleted to protect your streak. The contract holds, but the margin of error is gone. Let's make today count.”</>
+                          ) : (
+                            <>“Your shields are fully intact. Consistency is not about perfection, but persistence. Keep taking it day by day.”</>
+                          )}
                         </p>
                       </div>
                     </div>

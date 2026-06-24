@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ENERGY_LABELS, PRIORITY_STYLES, type Task } from "@/lib/tasks/types";
-import { IconFlame, IconBook, IconSkull, IconShield, IconBrain, IconListDetails, IconClock } from "@tabler/icons-react";
+import { IconFlame, IconBook, IconSkull, IconShield, IconBrain, IconListDetails, IconClock, IconTrash } from "@tabler/icons-react";
 
 // ─── Deadline State ───────────────────────────────────────────────────────────
 
@@ -46,6 +46,7 @@ type Props = {
   onStuck: (task: Task) => void;
   onMemory: (task: Task, note: string) => void;
   onRate: (task: Task, rating: number) => void;
+  onDelete?: (task: Task) => void;
 };
 
 export default function TaskCard({
@@ -59,6 +60,7 @@ export default function TaskCard({
   onStuck,
   onMemory,
   onRate,
+  onDelete,
 }: Props) {
   const [showMemory, setShowMemory] = useState(false);
   const [deadline, setDeadline] = useState<DeadlineState>(() => getDeadlineState(due_date));
@@ -152,6 +154,7 @@ export default function TaskCard({
               onStuck={onStuck}
               onMemory={onMemory}
               onRate={onRate}
+              onDelete={onDelete}
             />
           </div>
         </motion.div>
@@ -180,6 +183,7 @@ export default function TaskCard({
             onStuck={onStuck}
             onMemory={onMemory}
             onRate={onRate}
+            onDelete={onDelete}
           />
         </div>
       )}
@@ -209,6 +213,7 @@ function CardInner({
   onStuck,
   onMemory,
   onRate,
+  onDelete,
 }: {
   task: Task;
   style: { border: string; label: string; text: string };
@@ -230,7 +235,10 @@ function CardInner({
   onStuck: (task: Task) => void;
   onMemory: (task: Task, note: string) => void;
   onRate: (task: Task, rating: number) => void;
+  onDelete?: (task: Task) => void;
 }) {
+  const totalFocused = task.actual_minutes_history?.reduce((a, b) => a + b, 0) || 0;
+
   return (
     <>
       <div className="flex items-start gap-3">
@@ -247,18 +255,35 @@ function CardInner({
         </button>
 
         <div className="min-w-0 flex-1">
-          <p
-            className={`font-quick font-bold leading-snug ${
-              task.done
-                ? "line-through text-warm-textMuted"
-                : deadline?.state === "overdue"
-                ? "text-warm-textMuted"
-                : "text-warm-text"
-            }`}
-          >
-            {task.isBoss && <IconFlame className="inline h-4 w-4 mr-1.5 text-priority-critical animate-pulse" />}
-            {task.title}
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p
+              className={`font-quick font-bold leading-snug ${
+                task.done
+                  ? "line-through text-warm-textMuted"
+                  : deadline?.state === "overdue"
+                  ? "text-warm-textMuted"
+                  : "text-warm-text"
+              }`}
+            >
+              {task.isBoss && <IconFlame className="inline h-4 w-4 mr-1.5 text-priority-critical animate-pulse" />}
+              {task.title}
+            </p>
+
+            {onDelete && (
+              <button
+                aria-label="Delete task"
+                onClick={() => {
+                  if (confirm("Are you sure you want to delete this task?")) {
+                    onDelete(task);
+                  }
+                }}
+                className="text-warm-textMuted hover:text-priority-critical transition p-1.5 rounded-xl hover:bg-white/5 shrink-0 -mt-1"
+                title="Delete task"
+              >
+                <IconTrash className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
           {/* Deadline badge */}
           {deadline && !task.done && (
@@ -293,19 +318,24 @@ function CardInner({
           )}
 
           {/* Time estimate badge */}
-          {timeEstimate != null && (
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {timeEstimate != null && (
               <span className="flex items-center gap-1 text-[10px] font-mono text-warm-textMuted">
                 <IconClock className="h-3 w-3" />
                 ~{timeEstimate} min
               </span>
-              {showUnderestimate && (
-                <span className="text-[10px] font-quick text-[#f0a868]/70 italic">
-                  (you usually underestimate by {underestimatePct}%)
-                </span>
-              )}
-            </div>
-          )}
+            )}
+            {totalFocused > 0 && (
+              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-warm-amber bg-warm-amber/10 px-1.5 py-0.5 rounded border border-warm-amber/20">
+                ⏱️ {totalFocused}m focused
+              </span>
+            )}
+            {showUnderestimate && (
+              <span className="text-[10px] font-quick text-[#f0a868]/70 italic">
+                (you usually underestimate by {underestimatePct}%)
+              </span>
+            )}
+          </div>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             <span className={`font-quick font-bold uppercase tracking-wider text-[10px] ${style.text}`}>{style.label}</span>
