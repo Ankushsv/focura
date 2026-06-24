@@ -89,6 +89,7 @@ function TimerInner() {
     selectedSoundscapeId, isBreakMode, breakElapsed, breakDuration, breakCycleCount,
     guard, petMsg, showStopConfirm, wasRunningBeforeConfirm, actualMinutesFocused,
     taskCompletedChoice, rating, claimed, duration, remaining, progress, phase,
+    isLoaded,
     setTaskId, setMinutes, setCycleMode, setSelectedSoundscapeId, setMinimized,
     setMuted, setGuard, setRunning, setStage, setShowStopConfirm,
     setWasRunningBeforeConfirm, setTaskCompletedChoice, setRating, setClaimed,
@@ -100,6 +101,25 @@ function TimerInner() {
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customSoundscapes, setCustomSoundscapes] = useState<CustomMix[]>([]);
   const [quoteIdx, setQuoteIdx] = useState(0);
+  const autoStartedTasks = useRef<Set<string>>(new Set());
+
+  // Clock theme selection
+  const [clockTheme, setClockTheme] = useState<"default" | "jungle" | "future" | "hourglass">("default");
+
+  // Load saved theme on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("focura.timer_theme");
+      if (saved === "default" || saved === "jungle" || saved === "future" || saved === "hourglass") {
+        setClockTheme(saved);
+      }
+    }
+  }, []);
+
+  const changeClockTheme = (theme: "default" | "jungle" | "future" | "hourglass") => {
+    setClockTheme(theme);
+    localStorage.setItem("focura.timer_theme", theme);
+  };
 
   const activeTasks = tasks.filter((t) => !t.done);
   const task: Task | undefined = tasks.find((t) => t.id === taskId) ?? activeTasks[0];
@@ -157,6 +177,30 @@ function TimerInner() {
     loadTimerSettings();
   }, [params, setTaskId, setMinutes]);
 
+  // Pre-fill timer minutes with the selected task's estimated/calibrated time if set, and auto-start if needed
+  useEffect(() => {
+    if (task && (task.estimated_minutes || task.calibrated_estimate)) {
+      const targetMins = task.calibrated_estimate || task.estimated_minutes;
+      if (targetMins && targetMins > 0) {
+        setMinutes(targetMins);
+        if (!LENGTHS.includes(targetMins)) {
+          setIsCustomMode(true);
+          setCustomMinutes(String(targetMins));
+        } else {
+          setIsCustomMode(false);
+        }
+
+        // Auto-start focus timer when loading with a task that has an estimation (if not already auto-started)
+        // Only auto-start if the task ID was explicitly passed in the URL parameters
+        const urlTaskId = params.get("task");
+        if (stage === "setup" && !running && urlTaskId === task.id && !autoStartedTasks.current.has(task.id)) {
+          autoStartedTasks.current.add(task.id);
+          begin();
+        }
+      }
+    }
+  }, [taskId, task, setMinutes, stage, running, begin, params]);
+
   // Handle custom minutes mode input sync
   useEffect(() => {
     if (isCustomMode && customMinutes) {
@@ -212,7 +256,7 @@ function TimerInner() {
     return `Felt like a ${rating}/10. Rate tasks before starting to build your difficulty model.`;
   }
 
-  if (!loaded) return null;
+  if (!loaded || !isLoaded) return null;
 
   const focusXp = actualMinutesFocused >= 2 ? (10 + actualMinutesFocused) : 0;
 
@@ -296,6 +340,11 @@ function TimerInner() {
                               <span className="rounded bg-warm-surface2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider font-quick text-warm-textMuted border border-warm-border">
                                 {t.energy} energy
                               </span>
+                              {t.actual_minutes_history && t.actual_minutes_history.length > 0 && (
+                                <span className="rounded bg-warm-amber/10 border border-warm-amber/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider font-quick text-warm-amber">
+                                  ⏱️ {t.actual_minutes_history.reduce((a, b) => a + b, 0)}m focused
+                                </span>
+                              )}
                             </div>
                           </div>
                           <span className={`shrink-0 rounded-full px-3 py-1 font-mono text-xs font-bold border transition ${
@@ -443,6 +492,37 @@ function TimerInner() {
                     </optgroup>
                   )}
                 </select>
+              </div>
+
+              {/* Clock Theme Skin */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-quick font-bold uppercase tracking-wider text-warm-textMuted flex items-center gap-1.5">
+                  <IconSparkles className="h-3.5 w-3.5 text-warm-amber" /> Clock Skin / Theme
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "default", label: "🏰 Medieval", desc: "Default glass sphere" },
+                    { id: "jungle", label: "🌿 Jungle", desc: "Twisted vines & sap" },
+                    { id: "future", label: "🌌 Future", desc: "Cybernetic rings" },
+                    { id: "hourglass", label: "⏳ Hourglass", desc: "Classic flowing sand" },
+                  ].map((skin) => (
+                    <button
+                      key={skin.id}
+                      type="button"
+                      onClick={() => changeClockTheme(skin.id as any)}
+                      className={`rounded-xl border p-2.5 text-left transition-all duration-300 ${
+                        clockTheme === skin.id
+                          ? "border-warm-amber bg-warm-amber/10 shadow-sm"
+                          : "border-warm-border bg-warm-surface2 hover:border-warm-border/85"
+                      }`}
+                    >
+                      <p className={`text-xs font-bold ${clockTheme === skin.id ? "text-warm-amber" : "text-warm-text"}`}>
+                        {skin.label}
+                      </p>
+                      <p className="text-[9px] text-warm-textMuted mt-0.5 leading-snug">{skin.desc}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Start Session */}
@@ -729,8 +809,8 @@ function TimerInner() {
           style={{ background: isBreakMode ? "#10b981" : phase.glow }}
         />
 
-        {/* Phase progress bar at top */}
-        <div className="fixed left-0 right-0 top-0 z-40 h-2 bg-warm-border/10">
+        {/* Phase progress bar at bottom */}
+        <div className="fixed left-0 right-0 bottom-0 z-50 h-2 bg-warm-border/10">
           <div
             className="h-full transition-all duration-[1000ms] ease-out shadow-[0_0_10px_rgba(255,255,255,0.2)]"
             style={{
@@ -765,6 +845,11 @@ function TimerInner() {
                     <span className="rounded-lg bg-warm-purple/10 border border-warm-purple/20 px-3 py-0.5 text-[10px] font-quick font-bold text-warm-purple uppercase tracking-wider">
                       {task.energy.toUpperCase()} ENERGY
                     </span>
+                    {task.actual_minutes_history && task.actual_minutes_history.length > 0 && (
+                      <span className="rounded-lg bg-warm-amber/10 border border-warm-amber/20 px-3 py-0.5 text-[10px] font-quick font-bold text-warm-amber uppercase tracking-wider flex items-center gap-1">
+                        ⏱️ {task.actual_minutes_history.reduce((a, b) => a + b, 0)}m focused
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -850,9 +935,35 @@ function TimerInner() {
                 progress={isBreakMode ? (breakElapsed / breakDuration) * 100 : progress}
                 colors={isBreakMode ? ["#059669", "#10b981"] : phase.liquid}
                 glow={isBreakMode ? "#10b981" : phase.glow}
-                size={340}
+                size={420}
                 timeLabel={isBreakMode ? fmt(breakDuration - breakElapsed) : fmt(remaining)}
+                theme={clockTheme}
+                running={running}
               />
+            </div>
+
+            {/* Quick skin switcher in active view */}
+            <div className="mt-4 flex items-center gap-1.5 bg-warm-surface/40 border border-warm-border/50 px-3 py-1 rounded-full backdrop-blur-sm relative z-20">
+              <span className="text-[9px] text-warm-textMuted font-bold uppercase tracking-wider mr-1">Skin:</span>
+              {[
+                { id: "default", label: "🏰", title: "Medieval" },
+                { id: "jungle", label: "🌿", title: "Jungle" },
+                { id: "future", label: "🌌", title: "Future" },
+                { id: "hourglass", label: "⏳", title: "Hourglass" },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => changeClockTheme(s.id as any)}
+                  title={`Switch to ${s.title} skin`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition duration-200 border ${
+                    clockTheme === s.id
+                      ? "border-warm-amber bg-warm-amber/15 scale-110 shadow-sm"
+                      : "border-transparent hover:bg-white/5"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
 
             <p className="mt-4 text-xs font-space font-bold uppercase tracking-widest" style={{ color: isBreakMode ? "#10b981" : phase.glow }}>
@@ -980,39 +1091,7 @@ function TimerInner() {
           </button>
         </div>
 
-        {/* Hyperfocus guard overlay panel */}
-        {guard && (
-          <div className="slide-down fixed left-1/2 top-8 z-50 w-[360px] -translate-x-1/2 overflow-hidden rounded-2xl border border-warm-amber/35 bg-warm-surface p-6 shadow-2xl backdrop-blur-md animate-fade-in">
-            <div className="flex gap-3">
-              <span className="text-xl">⚠️</span>
-              <div className="space-y-1">
-                <p className="text-xs font-space font-bold text-warm-amber uppercase tracking-wider">Break Guard Active</p>
-                <p className="text-xs leading-relaxed text-warm-textMuted font-quick font-medium">
-                  ADHD minds frequently bypass breaks. Go stretch, drink some water. I am keeping watch here.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 flex gap-2">
-              <button
-                onClick={() => setGuard(false)}
-                className="flex-1 rounded-xl bg-warm-amber px-3 py-2.5 text-xs font-space font-bold text-warm-bg hover:opacity-90 transition"
-              >
-                Skip & Work
-              </button>
-              <button
-                onClick={() => {
-                  setRunning(false);
-                  setGuard(false);
-                  sound.stopAmbient();
-                  audioEngine.stop();
-                }}
-                className="flex-1 rounded-xl border border-warm-border bg-warm-surface2 px-3 py-2.5 text-xs font-space font-bold text-warm-text hover:bg-warm-surface transition"
-              >
-                Accept Break
-              </button>
-            </div>
-          </div>
-        )}
+        
       </div>
     );
   };

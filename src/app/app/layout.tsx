@@ -273,7 +273,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       className={`rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-quick font-bold transition duration-200 flex items-center gap-1.5 ${
                         dropdownOpen || [
                           "/app/coach",
-                          "/app/memory", "/app/contracts", "/app/challenges", "/app/timer"
+                          "/app/memory", "/app/contracts", "/app/challenges", "/app/timer", "/app/timeline"
                         ].includes(pathname)
                           ? "bg-warm-surface text-warm-text shadow-sm"
                           : "text-warm-textMuted hover:text-warm-text"
@@ -288,6 +288,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     {dropdownOpen && (
                       <div className="absolute top-[44px] left-0 bg-warm-surface border border-warm-border rounded-2xl p-3.5 shadow-2xl w-48 space-y-1 z-50 animate-fade-in text-left">
                         {[
+                          { href: "/app/timeline", label: "📅 Today's Map" },
                           { href: "/app/timer", label: "⏱️ Focus Timer" },
                           { href: "/app/coach", label: "🤖 AI Coach" },
                           { href: "/app/memory", label: "🧠 Focus Memory" },

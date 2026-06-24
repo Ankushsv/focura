@@ -22,6 +22,8 @@ export default function SettingsPage() {
   const [isLight, setIsLight] = useState(false);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [wakeHour, setWakeHour] = useState(6);
+  const [sleepHour, setSleepHour] = useState(23);
 
   // Status feedback
   const [savedStatus, setSavedStatus] = useState<string | null>(null);
@@ -61,6 +63,12 @@ export default function SettingsPage() {
           }
           if (profile.notifications_enabled !== undefined && profile.notifications_enabled !== null) {
             setNotificationsEnabled(profile.notifications_enabled);
+          }
+          if (profile.wake_hour !== undefined && profile.wake_hour !== null) {
+            setWakeHour(profile.wake_hour);
+          }
+          if (profile.sleep_hour !== undefined && profile.sleep_hour !== null) {
+            setSleepHour(profile.sleep_hour);
           }
         }
       } catch (err) {
@@ -104,21 +112,49 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
+      const fullPayload = {
+        username: name.trim(),
+        name: name.trim(),
+        avatar_emoji: avatar,
+        focus_duration: focusDur,
+        short_break_duration: shortBreak,
+        long_break_duration: longBreak,
+        sounds_enabled: soundsEnabled,
+        notifications_enabled: notificationsEnabled,
+        wake_hour: wakeHour,
+        sleep_hour: sleepHour,
+        timeline_setup_done: true,
+      };
+
+      let { error } = await supabase
         .from("profiles")
-        .update({
-          username: name.trim(),
-          name: name.trim(),
-          avatar_emoji: avatar,
-          focus_duration: focusDur,
-          short_break_duration: shortBreak,
-          long_break_duration: longBreak,
-          sounds_enabled: soundsEnabled,
-          notifications_enabled: notificationsEnabled,
-        })
+        .update(fullPayload)
         .eq("id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.warn("Failed to save full settings, retrying with base columns...", error);
+        
+        // Fallback update with base columns that are guaranteed to exist
+        const basePayload = {
+          username: name.trim(),
+          avatar_emoji: avatar,
+          wake_hour: wakeHour,
+          sleep_hour: sleepHour,
+          timeline_setup_done: true,
+        };
+
+        const { error: fallbackError } = await supabase
+          .from("profiles")
+          .update(basePayload)
+          .eq("id", user.id);
+
+        if (fallbackError) throw fallbackError;
+      }
+
+      // Local storage fallback for timeline setup completion
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("focura_timeline_setup_done", "true");
+      }
 
       // Trigger feedback
       setSavedStatus("Settings saved successfully! ✨");
@@ -158,7 +194,7 @@ export default function SettingsPage() {
       ]);
 
       // Reset profile
-      await supabase.from("profiles").update({
+      const fullResetPayload = {
         total_xp: 0,
         level: 1,
         theme: "dark",
@@ -168,7 +204,26 @@ export default function SettingsPage() {
         sounds_enabled: true,
         notifications_enabled: true,
         onboarding_complete: false,
-      }).eq("id", user.id);
+      };
+
+      let { error: resetError } = await supabase
+        .from("profiles")
+        .update(fullResetPayload)
+        .eq("id", user.id);
+
+      if (resetError) {
+        console.warn("Failed to reset full profile fields, retrying with base columns...", resetError);
+        const baseResetPayload = {
+          total_xp: 0,
+          level: 1,
+        };
+        const { error: fallbackResetError } = await supabase
+          .from("profiles")
+          .update(baseResetPayload)
+          .eq("id", user.id);
+
+        if (fallbackResetError) throw fallbackResetError;
+      }
 
       setSavedStatus("Data cleared! Reloading...");
       setTimeout(() => {
@@ -258,6 +313,55 @@ export default function SettingsPage() {
                       {emoji}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Timeline Preferences */}
+              <div className="grid gap-6 sm:grid-cols-2 border-t border-warm-border/40 pt-5">
+                {/* Wake Hour */}
+                <div className="space-y-2">
+                  <label htmlFor="wake-hour-select" className="block text-xs font-quicksand font-bold text-warm-textMuted uppercase tracking-wider">
+                    🌅 Wake Up Hour (Timeline)
+                  </label>
+                  <select
+                    id="wake-hour-select"
+                    value={wakeHour}
+                    onChange={(e) => setWakeHour(parseInt(e.target.value, 10))}
+                    className="w-full bg-[#161412] border border-warm-border rounded-xl px-4 py-3 text-sm text-warm-text font-quicksand focus:border-warm-amber/60 focus:outline-none transition"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => {
+                      const ampm = i < 12 ? "AM" : "PM";
+                      const h = i % 12 === 0 ? 12 : i % 12;
+                      return (
+                        <option key={i} value={i} className="bg-warm-surface text-warm-text">
+                          {h}:00 {ampm}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Sleep Hour */}
+                <div className="space-y-2">
+                  <label htmlFor="sleep-hour-select" className="block text-xs font-quicksand font-bold text-warm-textMuted uppercase tracking-wider">
+                    💤 Bedtime Hour (Timeline)
+                  </label>
+                  <select
+                    id="sleep-hour-select"
+                    value={sleepHour}
+                    onChange={(e) => setSleepHour(parseInt(e.target.value, 10))}
+                    className="w-full bg-[#161412] border border-warm-border rounded-xl px-4 py-3 text-sm text-warm-text font-quicksand focus:border-warm-amber/60 focus:outline-none transition"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => {
+                      const ampm = i < 12 ? "AM" : "PM";
+                      const h = i % 12 === 0 ? 12 : i % 12;
+                      return (
+                        <option key={i} value={i} className="bg-warm-surface text-warm-text">
+                          {h}:00 {ampm}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
               </div>
             </div>
