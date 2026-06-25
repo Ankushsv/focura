@@ -306,12 +306,27 @@ export function useTasks() {
     [patchTask]
   );
 
+  const deleteTask = useCallback(
+    async (id: string) => {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("tasks").delete().eq("id", id);
+        if (error) throw error;
+      } catch (err) {
+        console.warn("Failed to delete task from Supabase:", err);
+      }
+    },
+    []
+  );
+
   return {
     tasks,
     loaded,
     energy,
     setEnergy,
     addTask,
+    deleteTask,
     completeTask,
     toggleSubtask,
     applyBreakdown,

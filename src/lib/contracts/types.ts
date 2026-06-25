@@ -1,4 +1,5 @@
 export type ContractFrequency = "daily" | "weekdays" | "weekly";
+export type ContractStatus = "active" | "broken" | "completed";
 
 export interface CheckIn {
   date: string; // YYYY-MM-DD
@@ -17,6 +18,7 @@ export interface Contract {
   bestStreak: number;
   checkIns: CheckIn[];
   createdAt: number;
+  status: ContractStatus;
 }
 
 export const FREQ_LABELS: Record<ContractFrequency, string> = {
@@ -45,14 +47,166 @@ export function hasCheckedInToday(contract: Contract): boolean {
   return contract.checkIns.some((c) => c.date === today && c.done);
 }
 
-export function last14Days(): string[] {
-  const days: string[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d.toISOString().slice(0, 10));
+export type SlotStatus = "checked" | "missed" | "pending" | "locked";
+
+export interface ContractSlot {
+  index: number;
+  label: string; // e.g. "Day 1", "Wk 1"
+  date?: string; // YYYY-MM-DD (for daily/weekdays)
+  weekStart?: string; // YYYY-MM-DD (for weekly)
+  weekEnd?: string; // YYYY-MM-DD (for weekly)
+  status: SlotStatus;
+}
+
+/**
+ * Calculates the 21 progress nodes (slots) for a contract based on its frequency.
+ */
+export function getContractSlots(contract: Contract, today: string): ContractSlot[] {
+  const slots: ContractSlot[] = [];
+  const startDay = new Date(contract.createdAt);
+  
+  if (contract.frequency === "daily") {
+    for (let i = 0; i < 21; i++) {
+      const d = new Date(startDay);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().slice(0, 10);
+      
+      const done = contract.checkIns.some((ci) => ci.date === dateStr && ci.done);
+      let status: SlotStatus = "locked";
+      if (done) {
+        status = "checked";
+      } else {
+        if (dateStr < today) {
+          status = "missed";
+        } else if (dateStr === today) {
+          status = "pending";
+        } else {
+          status = "locked";
+        }
+      }
+      slots.push({
+        index: i,
+        label: `Day ${i + 1}`,
+        date: dateStr,
+        status,
+      });
+    }
+  } else if (contract.frequency === "weekdays") {
+    const current = new Date(startDay);
+    let count = 0;
+    while (count < 21) {
+      const dayOfWeek = current.getDay();
+      const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
+      if (isWeekday) {
+        const dateStr = current.toISOString().slice(0, 10);
+        const done = contract.checkIns.some((ci) => ci.date === dateStr && ci.done);
+        let status: SlotStatus = "locked";
+        if (done) {
+          status = "checked";
+        } else {
+          if (dateStr < today) {
+            status = "missed";
+          } else if (dateStr === today) {
+            status = "pending";
+          } else {
+            status = "locked";
+          }
+        }
+        slots.push({
+          index: count,
+          label: `Day ${count + 1}`,
+          date: dateStr,
+          status,
+        });
+        count++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+  } else if (contract.frequency === "weekly") {
+    for (let i = 0; i < 21; i++) {
+      const start = new Date(startDay);
+      start.setDate(start.getDate() + i * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      
+      const weekStartStr = start.toISOString().slice(0, 10);
+      const weekEndStr = end.toISOString().slice(0, 10);
+      
+      const done = contract.checkIns.some((ci) => ci.date >= weekStartStr && ci.date <= weekEndStr && ci.done);
+      let status: SlotStatus = "locked";
+      if (done) {
+        status = "checked";
+      } else {
+        if (weekEndStr < today) {
+          status = "missed";
+        } else if (today >= weekStartStr && today <= weekEndStr) {
+          status = "pending";
+        } else {
+          status = "locked";
+        }
+      }
+      slots.push({
+        index: i,
+        label: `Wk ${i + 1}`,
+        weekStart: weekStartStr,
+        weekEnd: weekEndStr,
+        status,
+      });
+    }
   }
-  return days;
+  
+  return slots;
+}
+
+/**
+ * Computes status, shields used, and current streak dynamically from check-ins.
+ */
+export function getContractProgress(contract: Contract, today: string) {
+  const slots = getContractSlots(contract, today);
+  
+  const checkedCount = slots.filter((s) => s.status === "checked").length;
+  const missedCount = slots.filter((s) => s.status === "missed").length;
+  
+  const shieldsUsed = Math.min(missedCount, contract.shieldsMax);
+  
+  // Calculate current active streak going backwards from today / recent slots
+  let streak = 0;
+  for (let i = slots.length - 1; i >= 0; i--) {
+    const slot = slots[i];
+    
+    // Check if slot is in the future
+    const isFuture = slot.date
+      ? slot.date > today
+      : slot.weekStart
+      ? slot.weekStart > today
+      : false;
+    if (isFuture) continue;
+    
+    if (slot.status === "checked") {
+      streak++;
+    } else if (slot.status === "pending") {
+      // Pending doesn't break the streak yet, keep looking back
+      continue;
+    } else {
+      // Missed breaks the streak
+      break;
+    }
+  }
+  
+  let status: ContractStatus = "active";
+  if (checkedCount === 21) {
+    status = "completed";
+  } else if (missedCount > contract.shieldsMax) {
+    status = "broken";
+  }
+  
+  return {
+    shieldsUsed,
+    streak,
+    bestStreak: Math.max(contract.bestStreak, streak),
+    status,
+    slots,
+  };
 }
 
 export function seedContracts(): Contract[] {
@@ -69,6 +223,7 @@ export function seedContracts(): Contract[] {
       bestStreak: 5,
       checkIns: [],
       createdAt: Date.now() - 86400000 * 3,
+      status: "active",
     },
   ];
 }

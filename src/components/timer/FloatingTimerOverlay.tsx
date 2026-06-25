@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useTimer } from "@/components/providers/TimerProvider";
 import { phaseFor } from "@/lib/timer/phases";
+import { sound } from "@/lib/timer/sound";
+import { audioEngine } from "@/lib/music/audioEngine";
 
 const fmt = (s: number) => {
   const m = Math.floor(s / 60);
@@ -13,8 +15,10 @@ const fmt = (s: number) => {
 
 export default function FloatingTimerOverlay() {
   const router = useRouter();
+  const pathname = usePathname();
   const { minimized, running, stage, progress, remaining, isBreakMode,
-    breakElapsed, breakDuration, setMinimized, broadcastProgress } = useTimer();
+    breakElapsed, breakDuration, setMinimized, broadcastProgress, isLoaded,
+    guard, setGuard, setRunning } = useTimer();
 
   const progressPercent = isBreakMode
     ? (breakElapsed / breakDuration) * 100
@@ -95,8 +99,14 @@ export default function FloatingTimerOverlay() {
     );
   }
 
-  // Only render when minimized and session is running
-  if (!minimized || !running || stage !== "session") return null;
+  // Render only when the timer provider state has loaded
+  if (!isLoaded) return null;
+
+  const isTimerPage = pathname === "/app/timer";
+  // Display automatically on other pages when running, or if explicitly minimized
+  const shouldShow = running && stage === "session" && (minimized || !isTimerPage);
+
+  if (!shouldShow) return null;
 
   // SVG ring
   const size = 88;
@@ -105,94 +115,132 @@ export default function FloatingTimerOverlay() {
   const dash = c * (1 - Math.min(progressPercent, 100) / 100);
 
   return (
-    <div
-      className="fixed z-[9999] select-none"
-      style={{ left: pos.x, top: pos.y, cursor: dragging ? "grabbing" : "grab" }}
-    >
-      <div className="relative group">
-        {/* Main draggable pill */}
-        <button
-          ref={pillRef}
-          onMouseDown={onMouseDown}
-          onTouchStart={onTouchStart}
-          onClick={(e) => {
-            // Only navigate on click (not drag)
-            if (!dragging) {
-              setMinimized(false);
-              router.push("/app/timer");
-            }
-          }}
-          aria-label="Expand focus timer"
-          style={{
-            background: `${color}18`,
-            borderColor: `${color}50`,
-            boxShadow: `0 0 24px ${color}30, 0 4px 20px rgba(0,0,0,0.5)`,
-          }}
-          className="relative flex flex-col items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-200 hover:scale-105"
-          title="Click to expand · Drag to move"
-        >
-          {/* SVG Progress Ring */}
-          <svg
-            width={size}
-            height={size}
-            className="-rotate-90"
-            style={{ position: "absolute", inset: 0 }}
+    <>
+      <div
+        className="fixed z-[9999] select-none"
+        style={{ left: pos.x, top: pos.y, cursor: dragging ? "grabbing" : "grab" }}
+      >
+        <div className="relative group">
+          {/* Main draggable pill */}
+          <button
+            ref={pillRef}
+            onMouseDown={onMouseDown}
+            onTouchStart={onTouchStart}
+            onClick={(e) => {
+              // Only navigate on click (not drag)
+              if (!dragging) {
+                setMinimized(false);
+                router.push("/app/timer");
+              }
+            }}
+            aria-label="Expand focus timer"
+            style={{
+              background: `${color}18`,
+              borderColor: `${color}50`,
+              boxShadow: `0 0 24px ${color}30, 0 4px 20px rgba(0,0,0,0.5)`,
+            }}
+            className="relative flex flex-col items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-200 hover:scale-105"
+            title="Click to expand · Drag to move"
           >
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              fill="none"
-              stroke="rgba(255,255,255,0.08)"
-              strokeWidth="3"
-            />
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              fill="none"
-              stroke={color}
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray={c}
-              strokeDashoffset={dash}
-              className="transition-all duration-1000"
-            />
-          </svg>
-
-          {/* Content inside ring */}
-          <div
-            className="relative z-10 flex flex-col items-center justify-center"
-            style={{ width: size, height: size }}
-          >
-            <span
-              className="text-2xl font-black font-mono leading-none tabular-nums"
-              style={{ color }}
+            {/* SVG Progress Ring */}
+            <svg
+              width={size}
+              height={size}
+              className="-rotate-90"
+              style={{ position: "absolute", inset: 0 }}
             >
-              {Math.round(progressPercent)}%
-            </span>
-            <span className="text-[9px] font-bold text-white/50 mt-0.5 font-mono tracking-tight">
-              {fmt(timeLeft)}
-            </span>
-            <span className="text-[8px] text-white/30 mt-0.5">
-              {isBreakMode ? "break" : "focus"}
-            </span>
-          </div>
-        </button>
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="3"
+              />
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke={color}
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={c}
+                strokeDashoffset={dash}
+                className="transition-all duration-1000"
+              />
+            </svg>
 
-        {/* Pop-out button (shows on hover) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            openPopOut();
-          }}
-          className="absolute -top-2 -right-2 h-6 w-6 rounded-full border border-white/20 bg-[#1a1a2e]/90 backdrop-blur-md text-white/60 hover:text-white hover:border-white/40 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 text-[10px] font-bold"
-          title="Pop out timer window (for LeetCode, etc.)"
-          aria-label="Open pop-out timer window"
-        >
-          ↗
-        </button>
+            {/* Content inside ring */}
+            <div
+              className="relative z-10 flex flex-col items-center justify-center"
+              style={{ width: size, height: size }}
+            >
+              <span
+                className="text-2xl font-black font-mono leading-none tabular-nums"
+                style={{ color }}
+              >
+                {Math.round(progressPercent)}%
+              </span>
+              <span className="text-[9px] font-bold text-white/50 mt-0.5 font-mono tracking-tight">
+                {fmt(timeLeft)}
+              </span>
+              <span className="text-[8px] text-white/30 mt-0.5">
+                {isBreakMode ? "break" : "focus"}
+              </span>
+            </div>
+          </button>
+
+          {/* Pop-out button (shows on hover) */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              openPopOut();
+            }}
+            className="absolute -top-2 -right-2 h-6 w-6 rounded-full border border-white/20 bg-[#1a1a2e]/90 backdrop-blur-md text-white/60 hover:text-white hover:border-white/40 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 text-[10px] font-bold"
+            title="Pop out timer window (for LeetCode, etc.)"
+            aria-label="Open pop-out timer window"
+          >
+            ↗
+          </button>
+        </div>
       </div>
-    </div>
+
+      {/* Hyperfocus guard overlay panel (renders on top of navbar with global modal backdrop) */}
+      {guard && (
+        <div className="fixed inset-0 z-[99999] flex items-start justify-center pt-24 bg-black/50 backdrop-blur-sm pointer-events-auto select-none animate-fade-in">
+          <div className="slide-down w-[360px] overflow-hidden rounded-2xl border border-warm-amber/35 bg-warm-surface p-6 shadow-2xl backdrop-blur-md">
+            <div className="flex gap-3">
+              <span className="text-xl">⚠️</span>
+              <div className="space-y-1">
+                <p className="text-xs font-space font-bold text-warm-amber uppercase tracking-wider">Break Guard Active</p>
+                <p className="text-xs leading-relaxed text-warm-textMuted font-quick font-medium">
+                  ADHD minds frequently bypass breaks. Go stretch, drink some water. I am keeping watch here.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setGuard(false)}
+                className="flex-1 rounded-xl bg-warm-amber px-3 py-2.5 text-xs font-space font-bold text-warm-bg hover:opacity-90 transition pointer-events-auto cursor-pointer"
+              >
+                Skip & Work
+              </button>
+              <button
+                onClick={() => {
+                  setRunning(false);
+                  setGuard(false);
+                  sound.stopAmbient();
+                  audioEngine.stop();
+                }}
+                className="flex-1 rounded-xl border border-warm-border bg-warm-surface2 px-3 py-2.5 text-xs font-space font-bold text-warm-text hover:bg-warm-surface transition pointer-events-auto cursor-pointer"
+              >
+                Accept Break
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
