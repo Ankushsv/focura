@@ -10,6 +10,7 @@ import SetupWizard from "@/components/onboarding/SetupWizard";
 import OnboardingTour from "@/components/onboarding/OnboardingTour";
 import { TimerProvider } from "@/components/providers/TimerProvider";
 import FloatingTimerOverlay from "@/components/timer/FloatingTimerOverlay";
+import CelestialBackground from "@/components/ui/CelestialBackground";
 import { bus } from "@/lib/events";
 import { levelFromXp } from "@/lib/xp/levels";
 import { 
@@ -229,10 +230,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className={`min-h-screen bg-warm-bg text-warm-text font-space select-none pb-20 relative overflow-hidden ${
           equippedTheme === "r3" ? "theme-emerald" : equippedTheme === "r7" ? "theme-sunset" : ""
         }`}>
-          {/* Background Ambient Glowing Orbs */}
-          <div className="pointer-events-none absolute -left-[10%] top-[-10%] h-[500px] w-[500px] rounded-full bg-warm-purple/8 blur-[120px] animate-pulse" style={{ animationDuration: '8s' }} />
-          <div className="pointer-events-none absolute right-[-5%] top-[15%] h-[450px] w-[450px] rounded-full bg-warm-teal/6 blur-[100px]" />
-          <div className="pointer-events-none absolute left-[30%] bottom-[-10%] h-[550px] w-[550px] rounded-full bg-warm-amber/5 blur-[130px] animate-pulse" style={{ animationDuration: '12s' }} />
+          {/* Celestial animated runic backdrop & background glow orbs */}
+          <CelestialBackground />
 
           {/* ── GLOBAL TOP NAV ── */}
           <header className="border-b border-warm-border bg-warm-bg/70 backdrop-blur-md sticky top-0 z-40">

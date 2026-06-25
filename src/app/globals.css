@@ -1554,3 +1554,114 @@ body {
   animation: ring-glow-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
+/* ============================================================
+   PREMIUM BACKGROUND ANIMATIONS & CELESTIAL ELEMENTS
+   ============================================================ */
+
+@keyframes astrolabe-spin-cw {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes astrolabe-spin-ccw {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animate-astrolabe-spin-cw {
+  animation: astrolabe-spin-cw 440s linear infinite;
+  transform-origin: center;
+}
+
+.animate-astrolabe-spin-ccw {
+  animation: astrolabe-spin-ccw 560s linear infinite;
+  transform-origin: center;
+}
+
+/* Ambient Northern Lights Blobs morphing & slow drift */
+@keyframes ambient-orb-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  33% { transform: translate(4vw, -4vh) scale(1.08); opacity: 0.8; }
+  66% { transform: translate(-3vw, 2vh) scale(0.92); opacity: 0.5; }
+}
+
+@keyframes ambient-orb-medium {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(-5vw, 4vh) scale(1.15); opacity: 0.7; }
+}
+
+@keyframes ambient-orb-fast {
+  0%, 100% { transform: translate(0, 0) scale(0.9); opacity: 0.4; }
+  40% { transform: translate(3vw, 3vh) scale(1.05); opacity: 0.65; }
+  75% { transform: translate(-2vw, -2vh) scale(0.95); opacity: 0.35; }
+}
+
+.animate-ambient-orb-slow {
+  animation: ambient-orb-slow 24s ease-in-out infinite;
+}
+
+.animate-ambient-orb-medium {
+  animation: ambient-orb-medium 32s ease-in-out infinite;
+}
+
+.animate-ambient-orb-fast {
+  animation: ambient-orb-fast 20s ease-in-out infinite;
+}
+
+/* ============================================================
+   INTERACTIVE BUTTON INTERACTIONS & PREMIUM GLOWS
+   ============================================================ */
+
+/* Global button interactivity upgrade */
+button, 
+.btn-interactive,
+a.rounded-full[href^="/app"],
+nav a[href^="/app"] {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:hover:not(:disabled), 
+.btn-interactive:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 
+              0 0 12px var(--btn-glow-color, rgba(167, 139, 250, 0.25));
+}
+
+button:active:not(:disabled), 
+.btn-interactive:active {
+  transform: translateY(0.5px) scale(0.97);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Diagonal Sheen Shimmer on Hover for buttons */
+.btn-shimmer-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+  transition: none;
+}
+
+.btn-shimmer-sweep:hover::after {
+  left: 200%;
+  transition: left 0.75s ease-in-out;
+}
+
+
