@@ -33,6 +33,38 @@ function getGreetingPhrase(): string {
   return "ready when you are 🌙";
 }
 
+// Deadline State Helper
+function getDeadlineState(dueDateStr: string | null | undefined) {
+  if (!dueDateStr) return null;
+  const now = new Date();
+  const due = new Date(dueDateStr);
+  const d1 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const d2 = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  const diffTime = d2.getTime() - d1.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const msRemaining = endOfDay.getTime() - now.getTime();
+    const hoursRemaining = Math.max(0, Math.round(msRemaining / (1000 * 60 * 60)));
+    return {
+      state: "today",
+      label: `Due today · ${hoursRemaining}h remaining`,
+    };
+  } else if (diffDays > 0 && diffDays <= 2) {
+    return {
+      state: "imminent",
+      label: `Due in ${diffDays} day${diffDays > 1 ? "s" : ""}`,
+    };
+  } else if (diffDays > 2 && diffDays <= 6) {
+    return {
+      state: "soon",
+      label: `Due in ${diffDays} days`,
+    };
+  }
+  return null;
+}
+
 export default function DashboardPage() {
   const { totalXp, level, awardXp } = useXp();
   const { activePet, petStats, petUsage, feedPet } = usePet();
@@ -124,6 +156,9 @@ export default function DashboardPage() {
               isBoss: t.is_boss || false,
               subtasks: [],
               createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
+              due_date: t.due_date || null,
+              calibrated_estimate: t.calibrated_estimate ?? null,
+              estimated_minutes: t.estimated_minutes ?? null,
             })));
           }
 
@@ -339,6 +374,89 @@ export default function DashboardPage() {
     return (remaining * 0.6).toFixed(1);
   }, []);
 
+  // 1. Next Recommended Mission (top priority incomplete task, sorted by soonest due date)
+  const recommendedMission = useMemo(() => {
+    if (activeTasks.length === 0) return null;
+    return [...activeTasks].sort((a, b) => {
+      const priorityMap = { critical: 0, high: 1, medium: 2 };
+      const aPri = priorityMap[a.priority as keyof typeof priorityMap] ?? 99;
+      const bPri = priorityMap[b.priority as keyof typeof priorityMap] ?? 99;
+      
+      if (aPri !== bPri) return aPri - bPri;
+      
+      // Soonest due date first
+      if (a.due_date && b.due_date) {
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      }
+      if (a.due_date) return -1;
+      if (b.due_date) return 1;
+      
+      return a.createdAt - b.createdAt;
+    })[0];
+  }, [activeTasks]);
+
+  // 2. Dynamic Focus Energy Capacity remaining today
+  const energyHours = useMemo(() => {
+    const sleepHour = 23;
+    const now = new Date();
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    const remainingDayHours = Math.max(0, sleepHour - currentHour);
+    
+    // Focus sessions actual minutes focused today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const startMs = todayStart.getTime();
+    const todaySess = sessions.filter(s => s.endedAt >= startMs);
+    const timeSpentMinutes = todaySess.reduce((sum: number, s: any) => sum + (s.actualMinutes || 0), 0);
+    const spentHours = timeSpentMinutes / 60;
+    
+    return Math.max(0, remainingDayHours - spentHours);
+  }, [sessions]);
+
+  const displayEnergyHours = useMemo(() => {
+    return energyHours > 0 ? energyHours : 8.0; // fallback to static 8.0
+  }, [energyHours]);
+
+  const energyMinutes = useMemo(() => {
+    return displayEnergyHours * 60;
+  }, [displayEnergyHours]);
+
+  const plannedMinutes = useMemo(() => {
+    return todayTasks.reduce((sum, t) => sum + (t.calibrated_estimate || t.estimated_minutes || 30), 0);
+  }, [todayTasks]);
+
+  const isOvercapacity = useMemo(() => {
+    return plannedMinutes > energyMinutes;
+  }, [plannedMinutes, energyMinutes]);
+
+  const fillPercentage = useMemo(() => {
+    if (energyMinutes <= 0) return 100;
+    return Math.min(100, (plannedMinutes / energyMinutes) * 100);
+  }, [plannedMinutes, energyMinutes]);
+
+  // 3. Dynamic Familiar Alert/Ready Message
+  const familiarMessage = useMemo(() => {
+    const energy = petStats?.energy ?? 100;
+    if (energy > 50) {
+      return {
+        icon: "🧙‍♂️",
+        text: "The Sage is ready. Your time sense is sharpening.",
+        style: "border-warm-amber/20 bg-warm-amber/5 text-warm-cream",
+      };
+    } else if (energy < 30) {
+      return {
+        icon: "🥺",
+        text: "The Familiar is concerned. Please rest after this battle.",
+        style: "border-red-500/20 bg-red-500/5 text-red-200",
+      };
+    }
+    return {
+      icon: "🛡️",
+      text: "The Familiar is watching over your quest progress.",
+      style: "border-warm-border/50 bg-warm-surface2/30 text-warm-textMuted",
+    };
+  }, [petStats]);
+
   // Escape key handler for morning briefing
   useEffect(() => {
     if (!showBriefing) return;
@@ -442,37 +560,11 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ── THE DAY'S QUEST BANNER (Main Quest) ── */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-warm-surface to-warm-surface2/50 rounded-2xl border border-warm-border p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-md">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-warm-amber/40 via-transparent to-transparent" />
+      {/* ── THREE COLUMN COMMAND CENTER GRID (12-column) ── */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-12">
         
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 shrink-0 rounded-2xl bg-warm-amber/10 border border-warm-amber/25 flex items-center justify-center text-xl shadow-inner">
-            🎯
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-warm-amber">
-              CURRENT FOCUS TARGET
-            </p>
-            <h3 className="font-space font-bold text-base text-warm-text mt-1">
-              {mainQuest ? mainQuest.title : "Your queue is clear. Time to rest or map a new quest."}
-            </h3>
-          </div>
-        </div>
-
-        <Link
-          href={mainQuest ? `/app/timer?task=${mainQuest.id}` : "/app/tasks"}
-          className="font-quick font-bold text-xs uppercase tracking-widest text-warm-bg bg-warm-amber px-8 py-3.5 rounded-full hover:shadow-[0_0_20px_rgba(240,168,104,0.2)] hover:scale-[1.02] transition duration-300 self-start md:self-auto text-center"
-        >
-          {mainQuest ? "▶ Start Focus Timer" : "Set today's target →"}
-        </Link>
-      </section>
-
-      {/* ── THREE COLUMN COMMAND CENTER GRID ── */}
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px_340px] lg:grid-cols-[1fr_340px] grid-cols-1">
-        
-        {/* ── COLUMN 1: QUESTS & CHECKS (Left) ── */}
-        <div className="space-y-6">
+        {/* ── COLUMN 1: QUEST BOARD (Left sidebar - col-span-3, order-2) ── */}
+        <div className="col-span-12 lg:col-span-3 order-2 lg:order-1 space-y-6">
           
           {/* Active Quests Board */}
           <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-lg space-y-4">
@@ -495,25 +587,51 @@ export default function DashboardPage() {
                   </Link>
                 </div>
               ) : (
-                activeTasks.slice(0, 4).map(task => (
-                  <div key={task.id} className="flex items-center justify-between border border-warm-border/50 bg-warm-surface2/40 rounded-xl p-4 hover:border-warm-amber/20 transition duration-200">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs">
-                        {task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : "🟡"}
-                      </span>
-                      <div>
-                        <h4 className="font-quick font-bold text-sm text-warm-text">{task.title}</h4>
-                        <span className="text-[9px] text-warm-textMuted font-mono uppercase mt-0.5 block">{task.energy} energy &middot; +{task.xp} XP</span>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/app/timer?task=${task.id}`}
-                      className="rounded-full border border-warm-border bg-warm-surface hover:bg-warm-surface2 hover:border-warm-amber/30 text-warm-text px-3.5 py-1.5 text-[10px] font-quick font-bold transition duration-200"
+                activeTasks.slice(0, 4).map(task => {
+                  const deadline = getDeadlineState(task.due_date);
+                  
+                  let borderClass = "border-warm-border/50";
+                  let shadowClass = "";
+                  let motionProps = {};
+                  
+                  if (deadline?.state === "today") {
+                    borderClass = "border-[#f87171]";
+                    shadowClass = "shadow-[0_0_12px_rgba(248,113,113,0.25)]";
+                  } else if (deadline?.state === "imminent") {
+                    motionProps = {
+                      animate: { borderColor: ["#f0a868", "#f87171", "#f0a868"] },
+                      transition: { repeat: Infinity, duration: 2, ease: "easeInOut" }
+                    };
+                  } else if (deadline?.state === "soon") {
+                    borderClass = "border-l-[3px] border-l-[#f0a868] border-t-warm-border/50 border-r-warm-border/50 border-b-warm-border/50";
+                  }
+                  
+                  return (
+                    <motion.div
+                      key={task.id}
+                      {...motionProps}
+                      className={`flex items-center justify-between border bg-warm-surface2/40 rounded-xl p-4 hover:border-warm-amber/20 transition duration-200 ${borderClass} ${shadowClass}`}
                     >
-                      ▶ focus
-                    </Link>
-                  </div>
-                ))
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-[10px] shrink-0">
+                          {task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : "🟡"}
+                        </span>
+                        <div className="min-w-0">
+                          <h4 className="font-quick font-bold text-sm text-warm-text truncate">{task.title}</h4>
+                          <span className="text-[9px] text-warm-textMuted font-mono uppercase mt-0.5 block truncate">
+                            {task.energy} energy &middot; +{task.xp} XP
+                          </span>
+                        </div>
+                      </div>
+                      <Link
+                        href={`/app/timer?task=${task.id}`}
+                        className="rounded-full border border-warm-border bg-warm-surface hover:bg-warm-surface2 hover:border-warm-amber/30 text-warm-text px-3.5 py-1.5 text-[10px] font-quick font-bold transition duration-200 shrink-0 ml-2"
+                      >
+                        ▶ focus
+                      </Link>
+                    </motion.div>
+                  );
+                })
               )}
             </div>
           </section>
@@ -617,83 +735,107 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* ── COLUMN 2: ANALYTICS & ENERGY (Center) ── */}
-        <div className="space-y-6">
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 flex flex-col items-center gap-6 shadow-lg text-center">
+        {/* ── COLUMN 2: WAR ROOM HERO (Center main area - col-span-6, order-1) ── */}
+        <div className="col-span-12 lg:col-span-6 order-1 lg:order-2 space-y-6">
+          
+          {/* War Room Hero Card */}
+          <section className="bg-[#1a1714] border border-[rgba(255,245,235,0.08)] rounded-2xl p-8 shadow-[0_24px_64px_rgba(0,0,0,0.5)] space-y-6">
             <div>
-              <p className="text-[9px] font-mono uppercase tracking-widest text-warm-amber">Energy Balance</p>
-              <h2 className="font-space font-bold text-lg text-warm-text mt-0.5">Daily Focus Goal</h2>
-            </div>
-
-            <div className="relative h-44 w-44">
-              <svg className="h-full w-full" viewBox="0 0 160 160">
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="70"
-                  stroke="rgba(255, 245, 235, 0.02)"
-                  strokeWidth="8"
-                  fill="none"
-                />
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="70"
-                  stroke="var(--color-warm-amber)"
-                  strokeWidth="8"
-                  fill="none"
-                  strokeDasharray={strokeCircumference}
-                  strokeDashoffset={strokeDashoffset}
-                  strokeLinecap="round"
-                  className="transition-all duration-1000 ease-out drop-shadow-[0_0_10px_rgba(240,168,104,0.15)]"
-                  style={{ transform: "rotate(-90deg)", transformOrigin: "80px 80px" }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-space font-extrabold text-warm-text leading-none">
-                  {todayCount}
-                  <span className="text-warm-textMuted text-xl font-normal">/{focusGoal}</span>
-                </span>
-                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-warm-amber mt-2">
-                  BLOCKS DONE
-                </span>
-              </div>
-            </div>
-
-            <div className="w-full text-xs text-warm-textMuted font-sans border-t border-warm-border pt-4">
-              <p className="font-quick">
-                {Math.max(0, focusGoal - todayCount) > 0 ? (
-                  <>You need <span className="text-warm-amber font-bold font-mono">{Math.max(0, focusGoal - todayCount)}</span> more focus blocks to reach your daily goal.</>
-                ) : (
-                  <span className="text-warm-teal font-bold">Daily focus target achieved! Perfect consistency! 🎉</span>
-                )}
+              <h1 className="font-space text-2xl font-semibold text-warm-cream leading-tight">
+                Good {greetingLabel === "Good morning" ? "morning" : greetingLabel === "Good afternoon" ? "afternoon" : "evening"}, {name}.
+              </h1>
+              <p className="text-sm text-warm-textMuted mt-1">
+                The realm awaits. Let's conquer the next battle.
               </p>
-              
-              <button
-                onClick={() => setShowMilestones(prev => !prev)}
-                className="mt-3 underline text-[10px] text-warm-textMuted hover:text-warm-text transition-colors font-mono uppercase tracking-wider block mx-auto"
-              >
-                {showMilestones ? "▲ hide history" : "▼ view today's sessions"}
-              </button>
-
-              {showMilestones && (
-                <div className="mt-3 space-y-2 border-t border-warm-border/50 pt-3 animate-fade-in text-left">
-                  {todaySessions.length === 0 ? (
-                    <p className="italic text-center text-warm-textMuted/40 py-2">No focus blocks completed today.</p>
-                  ) : (
-                    todaySessions.map((s, idx) => (
-                      <div key={idx} className="flex justify-between text-[10px] text-warm-textMuted bg-warm-surface2 border border-warm-border rounded-xl px-3 py-2">
-                        <span className="truncate max-w-[160px]">⚡ {s.taskTitle || "Focus Session"}</span>
-                        <span className="font-mono">
-                          {new Date(s.endedAt).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    ))
-                  )}
+            </div>
+            
+            <div className="h-[1px] bg-[rgba(255,245,235,0.08)] w-full" />
+            
+            {recommendedMission ? (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-warm-amber">
+                    Next Recommended Mission
+                  </p>
+                  <h3 className="font-space text-lg font-semibold text-warm-cream mt-1 leading-snug">
+                    {recommendedMission.title}
+                  </h3>
                 </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-1">
+                  {/* Time Cost Badge */}
+                  <div className="flex flex-col">
+                    <span className="text-xs text-warm-amber font-mono font-semibold">
+                      ⏱ ~{recommendedMission.calibrated_estimate ?? recommendedMission.estimated_minutes ?? 30} min
+                    </span>
+                    <span className="text-[10px] text-warm-textMuted font-sans">
+                      {recommendedMission.calibrated_estimate && recommendedMission.estimated_minutes && recommendedMission.calibrated_estimate !== recommendedMission.estimated_minutes
+                        ? `(you usually estimate ${recommendedMission.estimated_minutes} min for this)`
+                        : `(based on initial estimate)`}
+                    </span>
+                  </div>
+
+                  {/* Deadline Badge */}
+                  {(() => {
+                    const deadline = getDeadlineState(recommendedMission.due_date);
+                    if (!deadline) return null;
+                    if (deadline.state === "today") {
+                      return (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#f87171]/10 text-[#f87171] border border-[#f87171]/20 animate-pulse self-start mt-0.5">
+                          ● {deadline.label}
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-warm-amber/10 text-warm-amber border border-warm-amber/15 self-start mt-0.5">
+                        ● {deadline.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <Link
+                  href={`/app/timer?task=${recommendedMission.id}`}
+                  className="btn-shimmer-sweep w-full flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-dim text-white font-quick font-bold text-sm py-4 hover:shadow-[0_0_24px_rgba(139,92,246,0.35)] transition-all duration-300 active:scale-95 text-center block"
+                >
+                  ⚔️ Enter the Battle
+                </Link>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-warm-textMuted text-sm font-quick">
+                All active quests are completed. Swear a new oath or rest up at the Hearth! 🛡️
+              </div>
+            )}
+          </section>
+
+          {/* Today's Battlefield Day Vessel Progress Bar */}
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-lg space-y-4">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-widest text-warm-textMuted">Today's Battlefield</p>
+              <h2 className="font-space font-bold text-base text-warm-cream mt-0.5">Day Vessel Capacity</h2>
+            </div>
+
+            <div className="space-y-2.5">
+              <div className="h-3 w-full bg-[#0e0c0a] rounded-full overflow-hidden border border-warm-border/30">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${
+                    isOvercapacity 
+                      ? "bg-[#f87171] drop-shadow-[0_0_8px_rgba(248,113,113,0.4)] animate-pulse" 
+                      : "bg-gradient-to-r from-[#a78bfa] to-[#f0a868]"
+                  }`}
+                  style={{ width: `${fillPercentage}%` }}
+                />
+              </div>
+
+              <div className="flex justify-between text-xs text-warm-textMuted font-mono">
+                <span>{(plannedMinutes / 60).toFixed(1)}h planned</span>
+                <span>{displayEnergyHours.toFixed(1)}h energy capacity</span>
+              </div>
+              
+              {isOvercapacity && (
+                <p className="text-[10px] text-[#f87171] font-quick font-semibold animate-pulse mt-1">
+                  ⚠️ OVERCAPACITY: You have planned more quests than your remaining daily focus energy allows. Consider postponing some tasks!
+                </p>
               )}
             </div>
           </section>
@@ -720,27 +862,44 @@ export default function DashboardPage() {
           </section>
         </div>
 
-        {/* ── COLUMN 3: GAMIFICATION & STREAK (Right) ── */}
-        <div className="space-y-6 lg:col-span-2 xl:col-span-1">
+        {/* ── COLUMN 3: GAMIFICATION & STREAK (Right sidebar - col-span-3, order-3) ── */}
+        <div className="col-span-12 lg:col-span-3 order-3 lg:order-3 space-y-6">
           
-          {/* Day Vessel */}
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-lg flex items-center justify-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 h-16 w-16 bg-warm-purple/5 blur-xl pointer-events-none" />
-            <DayVessel wakeHour={8} sleepHour={23} />
-          </section>
-
-          {/* Oath Fire (Streak) */}
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 flex items-center justify-between shadow-md relative overflow-hidden">
-            <div className="space-y-1 relative z-10">
+          {/* Card 1: The Familiar State */}
+          <section className={`border rounded-2xl p-5 shadow-md flex gap-3.5 items-start transition duration-300 ${familiarMessage.style}`}>
+            <span className="text-2xl shrink-0 mt-0.5">{familiarMessage.icon}</span>
+            <div className="space-y-0.5">
               <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">
-                CONSISTENCY STREAK
+                Familiar State
               </h4>
-              <p className={`font-space font-bold text-base mt-1 ${streakDays > 0 ? "text-warm-amber" : "text-warm-textMuted"}`}>
-                {streakDays > 0 ? `${streakDays} Day Streak` : "Active streak initialized"}
+              <p className="text-xs font-quick font-semibold leading-relaxed">
+                {familiarMessage.text}
               </p>
             </div>
-            <div className="text-3xl relative z-10 bg-warm-surface2/60 h-12 w-12 rounded-xl flex items-center justify-center border border-warm-border/60 shadow-inner">
-              <span className={streakDays > 0 ? "animate-pulse" : "opacity-35"}>🔥</span>
+          </section>
+
+          {/* Card 2: Quick Stats (Minimalist) */}
+          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 shadow-md space-y-4">
+            <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">
+              Command Metrics
+            </h4>
+            
+            <div className="grid grid-cols-1 gap-3 font-space">
+              <div className="flex items-center gap-3 bg-warm-surface2/60 border border-warm-border/50 rounded-xl p-3.5 hover:border-warm-amber/20 transition">
+                <span className="text-2xl shrink-0">🔥</span>
+                <div>
+                  <p className="text-[8px] font-mono uppercase tracking-widest text-warm-textMuted">Oath Streak</p>
+                  <p className="text-sm font-semibold text-warm-amber">{streakDays > 0 ? `${streakDays} Day Streak` : "0 Days"}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-warm-surface2/60 border border-warm-border/50 rounded-xl p-3.5 hover:border-warm-amber/20 transition">
+                <span className="text-2xl shrink-0">⚡</span>
+                <div>
+                  <p className="text-[8px] font-mono uppercase tracking-widest text-warm-textMuted">Focus Energy</p>
+                  <p className="text-sm font-semibold text-warm-teal">{displayEnergyHours.toFixed(1)}h Remaining</p>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -785,7 +944,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Demo XP trigger (Practice) */}
+          {/* Demo Lab */}
           {!user && (
             <section className="relative overflow-hidden bg-gradient-to-br from-warm-purple/10 via-warm-surface to-warm-surface border border-warm-border rounded-2xl p-5 space-y-3 shadow-md">
               <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-purple">
