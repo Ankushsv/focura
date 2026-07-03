@@ -18,6 +18,19 @@
   --color-warm-teal: #5eead4;
   --color-warm-amber: #f0a868;
   --color-warm-cream: #f5e6d3;
+
+  /* Structured Theme Tokens */
+  --color-putty: #c4c3b6;
+  --color-ink: #000000;
+  --color-bone: #e7e5e4;
+  --color-chalk: #ebebeb;
+  --color-vellum: #dfdcd5;
+  --color-graphite: #595855;
+  --color-ash: #808080;
+  --color-paper: #ffffff;
+
+  --font-davinci: var(--font-serif);
+  --font-helvetica-now: var(--font-inter);
 }
 
 .light-theme {
@@ -52,7 +65,7 @@
 body {
   background-color: var(--color-warm-bg);
   color: var(--color-warm-text);
-  overflow-x: hidden;
+  overflow-x: clip;
   @apply font-sans antialiased;
 }
 
@@ -1663,5 +1676,42 @@ button:active:not(:disabled),
   left: 200%;
   transition: left 0.75s ease-in-out;
 }
+
+/* Click Ripple Animation */
+@keyframes ripple-click {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple-click 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Conveyor Belt Testimonial Marquees */
+@keyframes marquee-left {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes marquee-right {
+  0% { transform: translate3d(-50%, 0, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.animate-marquee-left {
+  animation: marquee-left 36s linear infinite;
+}
+
+.animate-marquee-right {
+  animation: marquee-right 36s linear infinite;
+}
+
+.marquee-track:hover .marquee-content {
+  animation-play-state: paused;
+}
+
+
 
 

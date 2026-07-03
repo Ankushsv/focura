@@ -10,6 +10,7 @@ import SetupWizard from "@/components/onboarding/SetupWizard";
 import OnboardingTour from "@/components/onboarding/OnboardingTour";
 import { TimerProvider } from "@/components/providers/TimerProvider";
 import FloatingTimerOverlay from "@/components/timer/FloatingTimerOverlay";
+import FloatingAICoach from "@/components/coach/FloatingAICoach";
 import CelestialBackground from "@/components/ui/CelestialBackground";
 import { bus } from "@/lib/events";
 import { levelFromXp } from "@/lib/xp/levels";
@@ -242,19 +243,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
 
                 {/* Pill Navigation Tab Group */}
-                <nav className="flex items-center gap-1.5 rounded-full bg-warm-surface2 border border-warm-border p-1.5 relative">
+                <nav className="flex items-center gap-1.5 rounded-full bg-warm-surface2 border border-warm-border p-1.5 relative overflow-x-auto max-w-full no-scrollbar">
                   {[
                     { href: "/app", label: "📊 Dashboard" },
                     { href: "/app/tasks", label: "📋 Tasks" },
-                    { href: "/app/paths", label: "🛣️ Paths" },
+                    { href: "/app/timer", label: "⏱️ Focus Timer" },
+                    { href: "/app/timeline", label: "📅 Timeline" },
+                    { 
+                      href: "/app/paths", 
+                      label: "🛡️ Progression", 
+                      activePaths: ["/app/paths", "/app/contracts"] 
+                    },
+                    { href: "/app/memory", label: "🧠 Focus Memory" },
                     { href: "/app/music", label: "🎵 Focus Music" },
                   ].map(tab => {
-                    const active = pathname === tab.href;
+                    const active = tab.activePaths 
+                      ? tab.activePaths.includes(pathname) 
+                      : pathname === tab.href;
                     return (
                       <Link
                         key={tab.label}
                         href={tab.href}
-                        className={`rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-quick font-bold transition duration-200 ${
+                        className={`rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-quick font-bold transition duration-200 shrink-0 ${
                           active
                             ? "bg-warm-surface text-warm-text shadow-sm"
                             : "text-warm-textMuted hover:text-warm-text"
@@ -264,55 +274,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       </Link>
                     );
                   })}
-
-                  {/* Dropdown for other modules */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setDropdownOpen(prev => !prev)}
-                      className={`rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-quick font-bold transition duration-200 flex items-center gap-1.5 ${
-                        dropdownOpen || [
-                          "/app/coach",
-                          "/app/memory", "/app/contracts", "/app/challenges", "/app/timer", "/app/timeline"
-                        ].includes(pathname)
-                          ? "bg-warm-surface text-warm-text shadow-sm"
-                          : "text-warm-textMuted hover:text-warm-text"
-                      }`}
-                      type="button"
-                    >
-                      <span>More</span>
-                      <span className="text-[10px] opacity-75">{dropdownOpen ? "▲" : "▼"}</span>
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {dropdownOpen && (
-                      <div className="absolute top-[44px] left-0 bg-warm-surface border border-warm-border rounded-2xl p-3.5 shadow-2xl w-48 space-y-1 z-50 animate-fade-in text-left">
-                        {[
-                          { href: "/app/timeline", label: "📅 Today's Map" },
-                          { href: "/app/timer", label: "⏱️ Focus Timer" },
-                          { href: "/app/coach", label: "🤖 AI Coach" },
-                          { href: "/app/memory", label: "🧠 Focus Memory" },
-                          { href: "/app/contracts", label: "🤝 Focus Contracts" },
-                          { href: "/app/challenges", label: "🏆 Challenges" },
-                        ].map(item => {
-                          const active = pathname === item.href;
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setDropdownOpen(false)}
-                              className={`flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs font-quick font-bold transition duration-200 ${
-                                active
-                                  ? "bg-warm-surface2 text-warm-amber"
-                                  : "text-warm-textMuted hover:bg-white/5 hover:text-warm-text"
-                              }`}
-                            >
-                              {item.label}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
                 </nav>
               </div>
 
@@ -434,6 +395,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             </div>
+
+            {/* Sub-navigation for Progression */}
+            {["/app/paths", "/app/contracts"].includes(pathname) && (
+              <div className="border-t border-warm-border/40 bg-warm-surface2/30 py-2.5 px-8 flex justify-center gap-6 text-xs font-quick font-bold animate-fade-in">
+                <Link href="/app/paths" className={`transition duration-150 flex items-center gap-1 ${pathname === "/app/paths" ? "text-warm-amber" : "text-warm-textMuted hover:text-warm-text"}`}>
+                  🛣️ Mastery Paths
+                </Link>
+                <span className="text-warm-border/60">|</span>
+                <Link href="/app/contracts" className={`transition duration-150 flex items-center gap-1 ${pathname === "/app/contracts" ? "text-warm-amber" : "text-warm-textMuted hover:text-warm-text"}`}>
+                  🤝 Consistency Contracts
+                </Link>
+              </div>
+            )}
           </header>
 
           {/* ── MAIN CONTENT AREA ── */}
@@ -444,6 +418,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Global Floating Companion */}
           <PetCompanion />
           <FloatingTimerOverlay />
+          <FloatingAICoach />
         </div>
 
         {/* Onboarding Flow */}
