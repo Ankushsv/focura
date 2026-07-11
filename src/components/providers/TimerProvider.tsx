@@ -18,6 +18,7 @@ import { useXp } from "@/components/providers/XpProvider";
 import { usePet } from "@/components/providers/PetProvider";
 import { bus } from "@/lib/events";
 import { fireConfetti } from "@/lib/confetti";
+import { logUserEvent } from "@/lib/userEvents";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type TimerStage = "setup" | "entrance" | "session" | "complete";
@@ -568,6 +569,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
       bus.emit("timer:start", {});
       startSelectedSoundscape();
+      logUserEvent("session_started", { task_id: taskId, minutes });
     }, 2800);
   }
 
@@ -593,6 +595,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     fireConfetti();
     bus.emit("timer:session-complete", { minutes: minsFocused });
     bus.emit("pet:react", { message: "Focus session completed! Great job!" });
+    logUserEvent("session_completed", { task_id: taskId, actual_minutes: minsFocused });
 
     if (cycleMode !== "single") {
       let sb = 300;
@@ -635,6 +638,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     fireConfetti();
     bus.emit("timer:session-complete", { minutes: minsFocused });
     bus.emit("pet:react", { message: "Focus session completed! Great job!" });
+    logUserEvent("session_completed", { task_id: taskId, actual_minutes: minsFocused });
     bus.emit("timer:stop", {});
     setStage("complete");
   }

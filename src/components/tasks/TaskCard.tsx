@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ENERGY_LABELS, PRIORITY_STYLES, type Task } from "@/lib/tasks/types";
 import { IconFlame, IconBook, IconSkull, IconShield, IconBrain, IconListDetails, IconClock, IconTrash } from "@tabler/icons-react";
+import { useTimer } from "@/components/providers/TimerProvider";
 
 // ─── Deadline State ───────────────────────────────────────────────────────────
 
@@ -237,7 +238,16 @@ function CardInner({
   onRate: (task: Task, rating: number) => void;
   onDelete?: (task: Task) => void;
 }) {
+  const timerContext = useTimer();
   const totalFocused = task.actual_minutes_history?.reduce((a, b) => a + b, 0) || 0;
+
+  const isCurrentTask = timerContext.taskId === task.id;
+  const isTimerRunning = timerContext.running && timerContext.stage === "session" && !timerContext.isBreakMode;
+  const liveMinutes = (isCurrentTask && isTimerRunning) ? (timerContext.elapsed / 60) : 0;
+  const currentFocused = totalFocused + liveMinutes;
+
+  const displayPercent = timeEstimate ? Math.round((currentFocused / timeEstimate) * 100) : 0;
+  const barPercent = timeEstimate ? Math.min(100, Math.round((currentFocused / timeEstimate) * 100)) : 0;
 
   return (
     <>
@@ -325,9 +335,13 @@ function CardInner({
                 ~{timeEstimate} min
               </span>
             )}
-            {totalFocused > 0 && (
-              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-warm-amber bg-warm-amber/10 px-1.5 py-0.5 rounded border border-warm-amber/20">
-                ⏱️ {totalFocused}m focused
+            {currentFocused > 0 && (
+              <span className={`flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                isCurrentTask && isTimerRunning 
+                  ? "text-warm-amber bg-warm-amber/10 border-warm-amber/30 animate-pulse" 
+                  : "text-warm-amber bg-warm-amber/10 border-warm-amber/20"
+              }`}>
+                ⏱️ {Math.round(currentFocused * 10) / 10}m focused
               </span>
             )}
             {showUnderestimate && (
@@ -336,6 +350,38 @@ function CardInner({
               </span>
             )}
           </div>
+
+          {/* Thematic Focus Progress Bar */}
+          {timeEstimate != null && timeEstimate > 0 && (
+            <div className="mt-2.5 space-y-1">
+              <div className="flex justify-between items-center text-[10px] font-mono text-warm-textMuted">
+                <span>Focus Goal Progress</span>
+                <span className={displayPercent >= 100 ? "text-warm-teal font-bold" : "text-warm-amber font-bold"}>
+                  {displayPercent}% ({Math.round(currentFocused * 10) / 10} / {timeEstimate}m)
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-warm-surface2 border border-warm-border rounded-full overflow-hidden relative">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-warm-amber to-[#f87171]"
+                  initial={{ width: 0 }}
+                  animate={{ 
+                    width: `${barPercent}%`,
+                    boxShadow: isCurrentTask && isTimerRunning 
+                      ? [
+                          "0 0 4px rgba(240, 168, 104, 0.4)",
+                          "0 0 12px rgba(240, 168, 104, 0.8)",
+                          "0 0 4px rgba(240, 168, 104, 0.4)"
+                        ]
+                      : "0 0 0px rgba(0,0,0,0)"
+                  }}
+                  transition={{ 
+                    width: { type: "spring", stiffness: 80, damping: 15 },
+                    boxShadow: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             <span className={`font-quick font-bold uppercase tracking-wider text-[10px] ${style.text}`}>{style.label}</span>
