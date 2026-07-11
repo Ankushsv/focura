@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import HallOfLegends from "@/components/tasks/HallOfFame";
@@ -31,6 +32,7 @@ const TIPS = [
 ];
 
 export default function TasksPage() {
+  const router = useRouter();
   const {
     tasks,
     loaded,
@@ -54,6 +56,27 @@ export default function TasksPage() {
   const [estimatedMinutes, setEstimatedMinutes] = useState<number>(30);
   const [rescue, setRescue] = useState<{ title: string; step: string } | null>(null);
   const [name, setName] = useState("adventurer");
+  const stuckCountRef = useRef(0);
+
+  // ── 90-second inactivity → ritual redirect ──
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        router.push("/app?ritual=true");
+      }, 90_000);
+    };
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, resetTimer));
+    };
+  }, [router]);
 
   // Load User Name
   useEffect(() => {
@@ -138,6 +161,12 @@ export default function TasksPage() {
   }
 
   async function handleStuck(task: Task) {
+    stuckCountRef.current += 1;
+    if (stuckCountRef.current >= 2) {
+      // Double-stuck → redirect to ritual with the task name
+      router.push(`/app?ritual=true&task=${encodeURIComponent(task.title)}`);
+      return;
+    }
     bus.emit("pet:react", { message: "AI Coach is finding a way forward..." });
     const step = await generateMicroStep(task.title);
     setRescue({ title: task.title, step });

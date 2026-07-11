@@ -14,11 +14,9 @@ import FloatingAICoach from "@/components/coach/FloatingAICoach";
 import CelestialBackground from "@/components/ui/CelestialBackground";
 import { bus } from "@/lib/events";
 import { levelFromXp } from "@/lib/xp/levels";
-import { 
-  IconUser, 
-  IconSettings, 
-  IconSun, 
-  IconMoon, 
+import {
+  IconUser,
+  IconSettings,
   IconCalendar,
   IconChartBar,
   IconGift
@@ -29,11 +27,11 @@ function UserTitleBadge() {
   const currentLevel = levelFromXp(totalXp);
   const userTitle =
     currentLevel <= 2 ? "Novice" :
-    currentLevel <= 5 ? "Apprentice" :
-    currentLevel <= 9 ? "Practitioner" :
-    currentLevel <= 14 ? "Specialist" :
-    currentLevel <= 20 ? "Expert" :
-    "Master";
+      currentLevel <= 5 ? "Apprentice" :
+        currentLevel <= 9 ? "Practitioner" :
+          currentLevel <= 14 ? "Specialist" :
+            currentLevel <= 20 ? "Expert" :
+              "Master";
 
   return (
     <span className="font-quick font-bold text-xs uppercase tracking-wider text-warm-amber">
@@ -88,18 +86,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
         if (supabaseUser) {
           setUser(supabaseUser);
-          
+
           const { data: profile } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", supabaseUser.id)
             .single();
-          
+
           if (profile) {
             const profileName = profile.name || profile.username || supabaseUser.email?.split("@")[0] || "Adventurer";
             setName(profileName);
             if (profile.avatar_emoji) setAvatar(profile.avatar_emoji);
-            
+
             // Onboarding step — localStorage cache wins to avoid re-showing wizard
             const alreadyOnboarded = localStorage.getItem("focura.onboarded") === "1";
             if (profile.onboarding_complete || alreadyOnboarded) {
@@ -212,7 +210,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Background Ambient Glowing Orbs */}
         <div className="pointer-events-none absolute -left-[10%] top-[-10%] h-[500px] w-[500px] rounded-full bg-warm-purple/8 blur-[120px] animate-pulse" style={{ animationDuration: '8s' }} />
         <div className="pointer-events-none absolute right-[-5%] top-[15%] h-[450px] w-[450px] rounded-full bg-warm-teal/6 blur-[100px]" />
-        
+
         <div className="text-center space-y-6 max-w-sm px-6 z-10">
           <div className="h-16 w-16 mx-auto rounded-full border border-warm-border flex items-center justify-center text-warm-text text-4xl shadow-lg animate-spin" style={{ animationDuration: '3s' }}>
             ⚡
@@ -228,206 +226,234 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <XpProvider>
       <PetProvider>
         <TimerProvider>
-        <div className={`min-h-screen bg-warm-bg text-warm-text font-space select-none pb-20 relative overflow-hidden ${
-          equippedTheme === "r3" ? "theme-emerald" : equippedTheme === "r7" ? "theme-sunset" : ""
-        }`}>
-          {/* Celestial animated runic backdrop & background glow orbs */}
-          <CelestialBackground />
+          <div className={`min-h-screen bg-warm-bg text-warm-text font-space select-none pb-20 relative overflow-hidden ${equippedTheme === "r3" ? "theme-emerald" : equippedTheme === "r7" ? "theme-sunset" : ""
+            }`}>
+            {/* Celestial animated runic backdrop & background glow orbs */}
+            <CelestialBackground />
 
-          {/* ── GLOBAL TOP NAV ── */}
-          <header className="border-b border-warm-border bg-warm-bg/70 backdrop-blur-md sticky top-0 z-40">
-            <div className="mx-auto max-w-[1400px] flex items-center justify-between px-8 py-5">
-              <div className="flex items-center gap-8">
-                <Link href="/app" className="group font-quick font-bold text-xl tracking-wider text-[#f5efe8]">
-                  focura<span className="text-warm-amber">.</span>
-                </Link>
+            {/* ── GLOBAL TOP NAV ── */}
+            <header className="border-b border-warm-border bg-warm-bg/70 backdrop-blur-md sticky top-0 z-40">
+              <div className="mx-auto max-w-[1400px] flex items-center justify-between px-8 py-5">
+                <div className="flex items-center gap-8">
+                  <Link href="/app" className="group font-quick font-bold text-xl tracking-wider text-[#f5efe8]">
+                    focura<span className="text-warm-amber">.</span>
+                  </Link>
 
-                {/* Pill Navigation Tab Group */}
-                <nav className="flex items-center gap-1.5 rounded-full bg-warm-surface2 border border-warm-border p-1.5 relative overflow-x-auto max-w-full no-scrollbar">
-                  {[
-                    { href: "/app", label: "📊 Dashboard" },
-                    { href: "/app/tasks", label: "📋 Tasks" },
-                    { href: "/app/timer", label: "⏱️ Focus Timer" },
-                    { href: "/app/timeline", label: "📅 Timeline" },
-                    { 
-                      href: "/app/paths", 
-                      label: "🛡️ Progression", 
-                      activePaths: ["/app/paths", "/app/contracts"] 
-                    },
-                    { href: "/app/memory", label: "🧠 Focus Memory" },
-                    { href: "/app/music", label: "🎵 Focus Music" },
-                  ].map(tab => {
-                    const active = tab.activePaths 
-                      ? tab.activePaths.includes(pathname) 
-                      : pathname === tab.href;
-                    return (
-                      <Link
-                        key={tab.label}
-                        href={tab.href}
-                        className={`rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-quick font-bold transition duration-200 shrink-0 ${
-                          active
+                  {/* Pill Navigation Tab Group */}
+                  <nav className="flex items-center gap-1.5 rounded-full bg-warm-surface2 border border-warm-border p-1.5 relative overflow-x-auto max-w-full no-scrollbar">
+                    {[
+                      { href: "/app", label: "📊 Dashboard" },
+                      { href: "/app/tasks", label: "📋 Tasks" },
+                      { href: "/app/timer", label: "⏱️ Focus Timer" },
+                      { href: "/app/timeline", label: "📅 Timeline" },
+                      {
+                        href: "/app/paths",
+                        label: "🛡️ Progression",
+                        activePaths: ["/app/paths", "/app/contracts"]
+                      },
+                      { href: "/app/memory", label: "🧠 Focus Memory" },
+                      { href: "/app/music", label: "🎵 Focus Music" },
+                    ].map(tab => {
+                      const active = tab.activePaths
+                        ? tab.activePaths.includes(pathname)
+                        : pathname === tab.href;
+                      return (
+                        <Link
+                          key={tab.label}
+                          href={tab.href}
+                          className={`rounded-full px-4 sm:px-5 py-2 text-xs sm:text-sm font-quick font-bold transition duration-200 shrink-0 ${active
                             ? "bg-warm-surface text-warm-text shadow-sm"
                             : "text-warm-textMuted hover:text-warm-text"
-                        }`}
-                      >
-                        {tab.label}
-                      </Link>
-                    );
-                  })}
-                </nav>
-              </div>
+                            }`}
+                        >
+                          {tab.label}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
 
-              {/* User Dropdown Section */}
-              <div className="relative">
-                <button
-                  onClick={() => setUserDropdownOpen(prev => !prev)}
-                  className={`h-10 w-10 rounded-full border bg-warm-surface2/60 flex items-center justify-center text-warm-text hover:border-warm-amber/40 hover:scale-105 transition ${
-                    userDropdownOpen ? "border-warm-amber/60 ring-1 ring-warm-amber/35" : "border-warm-border"
-                  }`}
-                  title="User Menu"
-                  type="button"
-                >
-                  <IconUser size={18} />
-                </button>
+                {/* User Dropdown Section */}
+                <div className="relative">
+                  <button
+                    onClick={() => setUserDropdownOpen(prev => !prev)}
+                    className={`h-10 w-10 rounded-full border bg-warm-surface2/60 flex items-center justify-center text-warm-text hover:border-warm-amber/40 hover:scale-105 transition ${userDropdownOpen ? "border-warm-amber/60 ring-1 ring-warm-amber/35" : "border-warm-border"
+                      }`}
+                    title="User Menu"
+                    type="button"
+                  >
+                    <IconUser size={18} />
+                  </button>
 
-                {userDropdownOpen && (
-                  <div className="absolute top-[48px] right-0 bg-warm-surface border border-warm-border rounded-2xl p-4 shadow-2xl w-64 space-y-4 z-50 animate-fade-in text-left">
-                    {/* Adventure / Profile Section */}
-                    <div className="flex items-center gap-3 border-b border-warm-border pb-3">
-                      <span className="text-2xl shrink-0">{avatar}</span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-warm-cream truncate">{name}</p>
-                        <div className="mt-0.5">
-                          <UserTitleBadge />
+                  {userDropdownOpen && (
+                    <div className="absolute top-[48px] right-0 bg-warm-surface border border-warm-border rounded-2xl p-4 shadow-2xl w-64 space-y-4 z-50 animate-fade-in text-left">
+                      {/* Adventure / Profile Section */}
+                      <div className="flex items-center gap-3 border-b border-warm-border pb-3">
+                        <span className="text-2xl shrink-0">{avatar}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-warm-cream truncate">{name}</p>
+                          <div className="mt-0.5">
+                            <UserTitleBadge />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Date & Info */}
-                    <div className="space-y-2 text-xs text-warm-textMuted font-space">
-                      <div className="flex items-center gap-1.5">
-                        <IconCalendar size={14} className="text-warm-amber" />
-                        <span>{currentDate}</span>
+                      {/* Date & Info */}
+                      <div className="space-y-2 text-xs text-warm-textMuted font-space">
+                        <div className="flex items-center gap-1.5">
+                          <IconCalendar size={14} className="text-warm-amber" />
+                          <span>{currentDate}</span>
+                        </div>
                       </div>
-                    </div>
 
-                          {/* Action links */}
-                    <div className="space-y-1 font-space">
-                      {/* Statistics link */}
-                      <Link
-                        href="/app/stats"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition animate-fade-in"
-                      >
-                        <IconChartBar size={14} className="text-warm-teal" />
-                        Statistics
-                      </Link>
-
-                      {/* Rewards link */}
-                      <Link
-                        href="/app/rewards"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition animate-fade-in"
-                      >
-                        <IconGift size={14} className="text-warm-purple" />
-                        Rewards
-                      </Link>
-
-                      {/* Settings link */}
-                      <Link
-                        href="/app/settings"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition"
-                      >
-                        <IconSettings size={14} className="text-warm-amber" />
-                        Settings
-                      </Link>
- 
-                      {/* Login or Logout link */}
-                      {user ? (
-                        <button
-                          onClick={handleLogout}
-                          className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition text-left"
-                          type="button"
-                        >
-                          <IconUser size={14} className="text-[#ea580c]" />
-                          Logout
-                        </button>
-                      ) : (
+                      {/* Action links */}
+                      <div className="space-y-1 font-space">
+                        {/* Statistics link */}
                         <Link
-                          href="/login"
+                          href="/app/stats"
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition animate-fade-in"
+                        >
+                          <IconChartBar size={14} className="text-warm-teal" />
+                          Statistics
+                        </Link>
+
+                        {/* Rewards link */}
+                        <Link
+                          href="/app/rewards"
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition animate-fade-in"
+                        >
+                          <IconGift size={14} className="text-warm-purple" />
+                          Rewards
+                        </Link>
+
+                        {/* Settings link */}
+                        <Link
+                          href="/app/settings"
                           onClick={() => setUserDropdownOpen(false)}
                           className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition"
                         >
-                          <IconUser size={14} className="text-warm-teal" />
-                          Login
+                          <IconSettings size={14} className="text-warm-amber" />
+                          Settings
                         </Link>
-                      )}
-                    </div>
 
-                    <div className="h-px bg-warm-border" />
-
-                    {/* Theme Toggle */}
-                    <div className="flex items-center justify-between font-space">
-                      <span className="text-xs text-warm-textMuted">App Tone</span>
-                      <button
-                        onClick={() => {
-                          toggleTheme(!isLight);
-                          setUserDropdownOpen(false);
-                        }}
-                        className="rounded-xl border border-warm-border bg-warm-surface2 px-3.5 py-1.5 text-xs font-bold text-warm-cream hover:border-warm-amber/40 transition flex items-center gap-1.5"
-                        type="button"
-                      >
-                        {isLight ? (
-                          <>
-                            <IconMoon size={14} className="text-warm-purple" />
-                            <span>Dark</span>
-                          </>
+                        {/* Login or Logout link */}
+                        {user ? (
+                          <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition text-left"
+                            type="button"
+                          >
+                            <IconUser size={14} className="text-[#ea580c]" />
+                            Logout
+                          </button>
                         ) : (
-                          <>
-                            <IconSun size={14} className="text-warm-amber" />
-                            <span>Light</span>
-                          </>
+                          <Link
+                            href="/login"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2 text-xs font-bold text-warm-textMuted hover:bg-white/5 hover:text-warm-text transition"
+                          >
+                            <IconUser size={14} className="text-warm-teal" />
+                            Login
+                          </Link>
                         )}
-                      </button>
+                      </div>
+
+                      <div className="h-px bg-warm-border" />
+
+                      {/* Theme Selector */}
+                      <div className="space-y-2 font-space">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-warm-textMuted">Theme</span>
+                        <div className="space-y-1">
+                          {/* Warm Option */}
+                          <button
+                            onClick={() => {
+                              toggleTheme(true);
+                              setUserDropdownOpen(false);
+                            }}
+                            className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-xs font-bold transition duration-200 ${isLight
+                              ? "bg-warm-amber/10 border border-warm-amber/30 text-warm-text"
+                              : "text-warm-textMuted hover:bg-white/5 hover:text-warm-text border border-transparent"
+                              }`}
+                            type="button"
+                          >
+                            <span
+                              className="h-5 w-5 rounded-full border border-black/10 shrink-0 shadow-inner"
+                              style={{ background: "#C4C3B6" }}
+                            />
+                            <div className="text-left">
+                              <span className="block">Warm</span>
+                              <span className="text-[9px] font-normal opacity-60">Sage putty · #C4C3B6</span>
+                            </div>
+                            {isLight && (
+                              <span className="ml-auto text-warm-amber text-sm">✓</span>
+                            )}
+                          </button>
+
+                          {/* Dark Option */}
+                          <button
+                            onClick={() => {
+                              toggleTheme(false);
+                              setUserDropdownOpen(false);
+                            }}
+                            className={`flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-xs font-bold transition duration-200 ${!isLight
+                              ? "bg-warm-amber/10 border border-warm-amber/30 text-warm-text"
+                              : "text-warm-textMuted hover:bg-white/5 hover:text-warm-text border border-transparent"
+                              }`}
+                            type="button"
+                          >
+                            <span
+                              className="h-5 w-5 rounded-full border border-white/10 shrink-0 shadow-inner"
+                              style={{ background: "#0e0c0a" }}
+                            />
+                            <div className="text-left">
+                              <span className="block">Dark</span>
+                              <span className="text-[9px] font-normal opacity-60">Obsidian · #0e0c0a</span>
+                            </div>
+                            {!isLight && (
+                              <span className="ml-auto text-warm-amber text-sm">✓</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Sub-navigation for Progression */}
-            {["/app/paths", "/app/contracts"].includes(pathname) && (
-              <div className="border-t border-warm-border/40 bg-warm-surface2/30 py-2.5 px-8 flex justify-center gap-6 text-xs font-quick font-bold animate-fade-in">
-                <Link href="/app/paths" className={`transition duration-150 flex items-center gap-1 ${pathname === "/app/paths" ? "text-warm-amber" : "text-warm-textMuted hover:text-warm-text"}`}>
-                  🛣️ Mastery Paths
-                </Link>
-                <span className="text-warm-border/60">|</span>
-                <Link href="/app/contracts" className={`transition duration-150 flex items-center gap-1 ${pathname === "/app/contracts" ? "text-warm-amber" : "text-warm-textMuted hover:text-warm-text"}`}>
-                  🤝 Consistency Contracts
-                </Link>
-              </div>
-            )}
-          </header>
+              {/* Sub-navigation for Progression */}
+              {["/app/paths", "/app/contracts"].includes(pathname) && (
+                <div className="border-t border-warm-border/40 bg-warm-surface2/30 py-2.5 px-8 flex justify-center gap-6 text-xs font-quick font-bold animate-fade-in">
+                  <Link href="/app/paths" className={`transition duration-150 flex items-center gap-1 ${pathname === "/app/paths" ? "text-warm-amber" : "text-warm-textMuted hover:text-warm-text"}`}>
+                    🛣️ Mastery Paths
+                  </Link>
+                  <span className="text-warm-border/60">|</span>
+                  <Link href="/app/contracts" className={`transition duration-150 flex items-center gap-1 ${pathname === "/app/contracts" ? "text-warm-amber" : "text-warm-textMuted hover:text-warm-text"}`}>
+                    🤝 Consistency Contracts
+                  </Link>
+                </div>
+              )}
+            </header>
 
-          {/* ── MAIN CONTENT AREA ── */}
-          <main className="mx-auto max-w-[1400px] px-6 py-10 relative z-10">
-            {children}
-          </main>
+            {/* ── MAIN CONTENT AREA ── */}
+            <main className="mx-auto max-w-[1400px] px-6 py-10 relative z-10">
+              {children}
+            </main>
 
-          {/* Global Floating Companion */}
-          <PetCompanion />
-          <FloatingTimerOverlay />
-          <FloatingAICoach />
-        </div>
+            {/* Global Floating Companion */}
+            <PetCompanion />
+            <FloatingTimerOverlay />
+            <FloatingAICoach />
+          </div>
 
-        {/* Onboarding Flow */}
-        {onboardingStep === "wizard" && (
-          <SetupWizard onComplete={() => setOnboardingStep("tour")} />
-        )}
-        {onboardingStep === "tour" && (
-          <OnboardingTour onComplete={() => setOnboardingStep("done")} />
-        )}
+          {/* Onboarding Flow */}
+          {onboardingStep === "wizard" && (
+            <SetupWizard onComplete={() => setOnboardingStep("tour")} />
+          )}
+          {onboardingStep === "tour" && (
+            <OnboardingTour onComplete={() => setOnboardingStep("done")} />
+          )}
         </TimerProvider>
       </PetProvider>
     </XpProvider>

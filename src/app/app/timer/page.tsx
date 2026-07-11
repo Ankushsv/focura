@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import Vessel from "@/components/timer/Vessel";
 import { useTasks } from "@/hooks/useTasks";
 import { useXp } from "@/components/providers/XpProvider";
@@ -102,21 +103,23 @@ function TimerInner() {
   const [customSoundscapes, setCustomSoundscapes] = useState<CustomMix[]>([]);
   const [quoteIdx, setQuoteIdx] = useState(0);
   const autoStartedTasks = useRef<Set<string>>(new Set());
+  const [isFromRitual, setIsFromRitual] = useState(false);
+  const ritualAutoStarted = useRef(false);
 
   // Clock theme selection
-  const [clockTheme, setClockTheme] = useState<"default" | "jungle" | "future" | "hourglass">("default");
+  const [clockTheme, setClockTheme] = useState<"default" | "jungle" | "future" | "hourglass" | "orb">("default");
 
   // Load saved theme on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("focura.timer_theme");
-      if (saved === "default" || saved === "jungle" || saved === "future" || saved === "hourglass") {
+      if (saved === "default" || saved === "jungle" || saved === "future" || saved === "hourglass" || saved === "orb") {
         setClockTheme(saved);
       }
     }
   }, []);
 
-  const changeClockTheme = (theme: "default" | "jungle" | "future" | "hourglass") => {
+  const changeClockTheme = (theme: "default" | "jungle" | "future" | "hourglass" | "orb") => {
     setClockTheme(theme);
     localStorage.setItem("focura.timer_theme", theme);
   };
@@ -175,7 +178,20 @@ function TimerInner() {
       }
     }
     loadTimerSettings();
-  }, [params, setTaskId, setMinutes]);
+
+    // Detect ?from=ritual — force 5 minutes and auto-start
+    const fromParam = params.get("from");
+    if (fromParam === "ritual" && !ritualAutoStarted.current) {
+      setIsFromRitual(true);
+      setMinutes(5);
+      setIsCustomMode(false);
+      ritualAutoStarted.current = true;
+      // Auto-start after a brief delay to let state settle
+      setTimeout(() => {
+        begin();
+      }, 100);
+    }
+  }, [params, setTaskId, setMinutes, begin]);
 
   // Pre-fill timer minutes with the selected task's estimated/calibrated time if set, and auto-start if needed
   useEffect(() => {
@@ -342,10 +358,40 @@ function TimerInner() {
                               </span>
                               {t.actual_minutes_history && t.actual_minutes_history.length > 0 && (
                                 <span className="rounded bg-warm-amber/10 border border-warm-amber/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider font-quick text-warm-amber">
-                                  ⏱️ {t.actual_minutes_history.reduce((a, b) => a + b, 0)}m focused
+                                  ⏱️ {Math.round(((t.actual_minutes_history.reduce((a, b) => a + b, 0) || 0) + ((taskId === t.id && running && stage === "session" && !isBreakMode) ? (elapsed / 60) : 0)) * 10) / 10}m focused
                                 </span>
                               )}
                             </div>
+                            {(() => {
+                              const est = t.calibrated_estimate ?? t.estimated_minutes;
+                              if (est == null || est <= 0) return null;
+
+                              const hist = t.actual_minutes_history?.reduce((a, b: number) => a + b, 0) || 0;
+                              const isCur = taskId === t.id;
+                              const isRun = running && stage === "session" && !isBreakMode;
+                              const liveMins = (isCur && isRun) ? (elapsed / 60) : 0;
+                              const currentFocused = hist + liveMins;
+
+                              const dispPct = Math.round((currentFocused / est) * 100);
+                              const barPct = Math.min(100, Math.round((currentFocused / est) * 100));
+
+                              return (
+                                <div className="mt-2 w-full space-y-0.5">
+                                  <div className="flex justify-between items-center text-[9px] font-mono text-warm-textMuted">
+                                    <span>Focus Progress: {dispPct}%</span>
+                                    <span>{Math.round(currentFocused * 10) / 10} / {est}m</span>
+                                  </div>
+                                  <div className="h-1 w-full bg-warm-surface border border-warm-border rounded-full overflow-hidden relative">
+                                    <motion.div
+                                      className="h-full rounded-full bg-gradient-to-r from-warm-amber to-[#f87171]"
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${barPct}%` }}
+                                      transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                           <span className={`shrink-0 rounded-full px-3 py-1 font-mono text-xs font-bold border transition ${
                             isSelected
@@ -501,6 +547,7 @@ function TimerInner() {
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
+                    { id: "orb", label: "🔮 3D Orb", desc: "Live Three.js sphere" },
                     { id: "default", label: "🏰 Medieval", desc: "Default glass sphere" },
                     { id: "jungle", label: "🌿 Jungle", desc: "Twisted vines & sap" },
                     { id: "future", label: "🌌 Future", desc: "Cybernetic rings" },
@@ -562,7 +609,7 @@ function TimerInner() {
                 Focus Block Initialized.
               </h2>
               <p className="text-xs font-quick font-bold text-warm-amber uppercase tracking-widest">
-                Target: {task?.title ?? "Free focus Block"}
+                {isFromRitual ? "Keep going." : `Target: ${task?.title ?? "Free focus Block"}`}
               </p>
             </div>
 
@@ -731,19 +778,54 @@ function TimerInner() {
             </p>
 
             {/* Action Buttons */}
-            <div className="flex justify-center gap-3 pt-4">
-              <button
-                onClick={() => setStage("setup")}
-                className="rounded-full bg-warm-amber text-warm-bg px-6 py-3 text-xs font-space font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
-              >
-                Re-Engage Focus
-              </button>
-              <Link
-                href="/app/tasks"
-                className="inline-flex items-center rounded-full border border-warm-border bg-warm-surface2 px-6 py-3 text-xs font-space font-bold text-warm-text hover:bg-warm-surface hover:text-[#f5efe8] transition duration-200"
-              >
-                Return to Quest Board
-              </Link>
+            <div className="flex justify-center gap-3 pt-4 flex-wrap">
+              {isFromRitual ? (
+                <>
+                  {/* Ritual-specific completion */}
+                  <div className="w-full max-w-lg text-center space-y-5">
+                    <p className="font-lora italic text-warm-textMuted text-sm leading-relaxed">
+                      You started.<br />
+                      That was the hardest part.<br />
+                      You just proved you can do it.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      <button
+                        onClick={() => { setMinutes(5); setStage("setup"); setTimeout(begin, 100); }}
+                        className="rounded-full bg-warm-amber text-warm-bg px-6 py-3 text-xs font-space font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+                      >
+                        ▶ Another 5 minutes
+                      </button>
+                      <button
+                        onClick={() => { setMinutes(25); setIsFromRitual(false); setStage("setup"); setTimeout(begin, 100); }}
+                        className="rounded-full bg-warm-purple/20 border border-warm-purple/30 text-warm-purple px-6 py-3 text-xs font-space font-bold hover:bg-warm-purple/30 transition"
+                      >
+                        ▶ Full session — 25 minutes
+                      </button>
+                      <Link
+                        href="/app"
+                        className="inline-flex items-center rounded-full border border-warm-border bg-warm-surface2 px-6 py-3 text-xs font-space font-bold text-warm-text hover:bg-warm-surface transition"
+                      >
+                        ✓ That's enough for now
+                      </Link>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setStage("setup")}
+                    className="rounded-full bg-warm-amber text-warm-bg px-6 py-3 text-xs font-space font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+                  >
+                    Re-Engage Focus
+                  </button>
+                  <Link
+                    href="/app/tasks"
+                    className="inline-flex items-center rounded-full border border-warm-border bg-warm-surface2 px-6 py-3 text-xs font-space font-bold text-warm-text hover:bg-warm-surface hover:text-[#f5efe8] transition duration-200"
+                  >
+                    Return to Quest Board
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -847,11 +929,53 @@ function TimerInner() {
                     </span>
                     {task.actual_minutes_history && task.actual_minutes_history.length > 0 && (
                       <span className="rounded-lg bg-warm-amber/10 border border-warm-amber/20 px-3 py-0.5 text-[10px] font-quick font-bold text-warm-amber uppercase tracking-wider flex items-center gap-1">
-                        ⏱️ {task.actual_minutes_history.reduce((a, b) => a + b, 0)}m focused
+                        ⏱️ {Math.round(((task.actual_minutes_history.reduce((a, b) => a + b, 0) || 0) + ((running && stage === "session") ? (elapsed / 60) : 0)) * 10) / 10}m focused
                       </span>
                     )}
                   </div>
                 )}
+                {task && !isBreakMode && (() => {
+                  const est = task.calibrated_estimate ?? task.estimated_minutes;
+                  if (est == null || est <= 0) return null;
+
+                  const hist = task.actual_minutes_history?.reduce((a, b: number) => a + b, 0) || 0;
+                  const liveMins = (running && stage === "session") ? (elapsed / 60) : 0;
+                  const currentFocused = hist + liveMins;
+
+                  const dispPct = Math.round((currentFocused / est) * 100);
+                  const barPct = Math.min(100, Math.round((currentFocused / est) * 100));
+
+                  return (
+                    <div className="w-full space-y-1 mt-3.5 pt-2 border-t border-warm-border/50">
+                      <div className="flex justify-between items-center text-[10px] font-mono text-warm-textMuted">
+                        <span>Active Target Progress</span>
+                        <span className={dispPct >= 100 ? "text-warm-teal font-bold animate-pulse" : "text-warm-amber font-bold"}>
+                          {dispPct}% ({Math.round(currentFocused * 10) / 10} / {est}m)
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-warm-surface2 border border-warm-border rounded-full overflow-hidden relative">
+                        <motion.div
+                          className="h-full rounded-full bg-gradient-to-r from-warm-amber to-[#f87171]"
+                          initial={{ width: 0 }}
+                          animate={{ 
+                            width: `${barPct}%`,
+                            boxShadow: running && stage === "session"
+                              ? [
+                                  "0 0 4px rgba(240, 168, 104, 0.4)",
+                                  "0 0 12px rgba(240, 168, 104, 0.8)",
+                                  "0 0 4px rgba(240, 168, 104, 0.4)"
+                                ]
+                              : "0 0 0px rgba(0,0,0,0)"
+                          }}
+                          transition={{ 
+                            width: { type: "spring", stiffness: 80, damping: 15 },
+                            boxShadow: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -946,6 +1070,7 @@ function TimerInner() {
             <div className="mt-4 flex items-center gap-1.5 bg-warm-surface/40 border border-warm-border/50 px-3 py-1 rounded-full backdrop-blur-sm relative z-20">
               <span className="text-[9px] text-warm-textMuted font-bold uppercase tracking-wider mr-1">Skin:</span>
               {[
+                { id: "orb", label: "🔮", title: "3D Orb" },
                 { id: "default", label: "🏰", title: "Medieval" },
                 { id: "jungle", label: "🌿", title: "Jungle" },
                 { id: "future", label: "🌌", title: "Future" },

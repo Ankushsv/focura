@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
@@ -14,6 +14,10 @@ import { bus } from "@/lib/events";
 import type { Task, Energy } from "@/lib/tasks/types";
 import { CATEGORY_ICONS } from "@/lib/paths/types";
 import DayVessel from "@/components/dashboard/DayVessel";
+import RitualOverlay from "@/components/ritual/RitualOverlay";
+import { useStuckDetection } from "@/hooks/useStuckDetection";
+import { logUserEvent } from "@/lib/userEvents";
+import { useTimer } from "@/components/providers/TimerProvider";
 
 // Daily Quotes Pool
 const QUOTES = [
@@ -66,12 +70,27 @@ function getDeadlineState(dueDateStr: string | null | undefined) {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardInner />
+    </Suspense>
+  );
+}
+
+function DashboardInner() {
   const { totalXp, level, awardXp } = useXp();
   const { activePet, petStats, petUsage, feedPet } = usePet();
   const { show: showBriefing, dismiss: dismissBriefing } = useMorningBriefing();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const progress = levelProgress(totalXp);
   const pct = Math.round((progress.current / progress.required) * 100);
+  const timerContext = useTimer();
+
+  // ── Ritual State ──
+  const [showRitual, setShowRitual] = useState(false);
+  const [ritualTask, setRitualTask] = useState<string | undefined>(undefined);
+  const { shouldTrigger: stuckTrigger } = useStuckDetection();
 
   // States
   const [user, setUser] = useState<any>(null);
@@ -87,6 +106,26 @@ export default function DashboardPage() {
   const [showMilestones, setShowMilestones] = useState(false);
   const [petPopoverOpen, setPetPopoverOpen] = useState(false);
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+
+  // ── Log app_opened + check URL params for ritual trigger ──
+  useEffect(() => {
+    logUserEvent("app_opened");
+
+    // Check if redirected here with ?ritual=true
+    const ritualParam = searchParams.get("ritual");
+    const taskParam = searchParams.get("task");
+    if (ritualParam === "true") {
+      setRitualTask(taskParam || undefined);
+      setShowRitual(true);
+    }
+  }, [searchParams]);
+
+  // ── Stuck detection auto-trigger ──
+  useEffect(() => {
+    if (stuckTrigger && !showRitual) {
+      setShowRitual(true);
+    }
+  }, [stuckTrigger, showRitual]);
 
   // Load Date
   const currentDate = useMemo(() => {
@@ -439,20 +478,20 @@ export default function DashboardPage() {
     const energy = petStats?.energy ?? 100;
     if (energy > 50) {
       return {
-        icon: "🧙‍♂️",
-        text: "The Sage is ready. Your time sense is sharpening.",
+        icon: "🙂",
+        text: "Feeling good and ready to focus alongside you.",
         style: "border-warm-amber/20 bg-warm-amber/5 text-warm-cream",
       };
     } else if (energy < 30) {
       return {
-        icon: "🥺",
-        text: "The Familiar is concerned. Please rest after this battle.",
+        icon: "😴",
+        text: "Running a little low — a short break would help.",
         style: "border-red-500/20 bg-red-500/5 text-red-200",
       };
     }
     return {
-      icon: "🛡️",
-      text: "The Familiar is watching over your quest progress.",
+      icon: "🙂",
+      text: "Here whenever you're ready to get started.",
       style: "border-warm-border/50 bg-warm-surface2/30 text-warm-textMuted",
     };
   }, [petStats]);
@@ -488,8 +527,34 @@ export default function DashboardPage() {
     return "Ready when you are — I'm here 🔥";
   }, [todayCount, activeTasks.length, petStats.energy, focusGoal, todayTasks, tomorrowTasks]);
 
+  // Small solid dot color per priority (replaces emoji indicators)
+  const priorityColor = (p: string) =>
+    p === "critical" ? "#f43f5e" : p === "high" ? "#f97316" : "#38bdf8";
+
   return (
-    <div className="mx-auto max-w-[1400px] w-full px-4 sm:px-8 space-y-8 animate-fade-in">
+    <>
+    {/* ── Ritual Overlay ── */}
+    <AnimatePresence>
+      {showRitual && (
+        <RitualOverlay
+          initialTask={ritualTask}
+          onClose={() => { setShowRitual(false); setRitualTask(undefined); }}
+        />
+      )}
+    </AnimatePresence>
+
+    <div className={`mx-auto max-w-[1120px] w-full px-4 sm:px-8 py-2 space-y-8 animate-fade-in transition-opacity duration-500 ${showRitual ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+      {/* ── Painting backdrop (Van Gogh · The Starry Night, public domain) ── */}
+      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center scale-110 blur-[3px] opacity-[0.28] animate-painting-drift"
+          style={{ backgroundImage: "url('/starry-night.jpg')" }}
+        />
+        {/* Readability + color-harmony wash over the painting */}
+        <div className="absolute inset-0 bg-gradient-to-b from-warm-bg/85 via-warm-bg/70 to-warm-bg/90" />
+        <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,transparent_0%,rgba(14,12,10,0.35)_100%)]" />
+      </div>
+
       {/* ── Morning Briefing Modal ── */}
       <MorningBriefingModal
         show={showBriefing}
@@ -500,422 +565,312 @@ export default function DashboardPage() {
         availableFocusHours={availableFocusHours}
       />
 
-      {/* ── HEADER HERO PANEL ── */}
-      <section className="relative overflow-hidden rounded-3xl border border-warm-border bg-gradient-to-br from-warm-surface via-warm-surface to-warm-surface2/40 p-6 sm:p-8 shadow-xl">
-        <div className="absolute -left-16 -top-16 h-48 w-48 rounded-full bg-warm-amber/5 blur-3xl pointer-events-none" />
-        <div className="absolute -right-16 -bottom-16 h-48 w-48 rounded-full bg-warm-purple/5 blur-3xl pointer-events-none" />
-        
-        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-          <div className="space-y-4 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-warm-amber animate-pulse" />
-              <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-warm-amber">
-                ADVENTURER STATION &middot; PROFILE LEVEL {level}
-              </p>
-            </div>
-            
-            <h1 className="font-space text-2xl sm:text-4xl font-extrabold text-warm-cream leading-none tracking-tight">
-              {greetingLabel === "Good morning" ? (
-                <>Welcome back, <span className="text-warm-amber">{name}</span>. Let's make today count. ☀️</>
-              ) : greetingLabel === "Good afternoon" ? (
-                <>Good afternoon, <span className="text-warm-amber">{name}</span>. Keep up the momentum. ⚡</>
-              ) : (
-                <>Good evening, <span className="text-warm-amber">{name}</span>. Time to wrap up. 🌙</>
-              )}
-            </h1>
-            <p className="font-quick text-sm sm:text-base text-warm-textMuted leading-relaxed">
-              &ldquo;{quote.text}&rdquo; <span className="text-warm-amber font-medium font-space text-xs uppercase tracking-wider">— {quote.author}</span>
-            </p>
-          </div>
+      {/* ── TOP BAR: greeting + date + level ── */}
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 animate-card-rise">
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium uppercase tracking-wider text-warm-textMuted">
+            {currentDate}
+          </p>
+          <h1 className="font-space text-2xl sm:text-3xl font-bold text-warm-text tracking-tight">
+            {greetingLabel}, <span className="bg-gradient-to-r from-warm-amber to-warm-cream bg-clip-text text-transparent">{name}</span>
+          </h1>
+        </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 shrink-0">
-            {/* User Level progress bar */}
-            <div className="flex items-center gap-4 bg-warm-surface2/60 border border-warm-border/60 rounded-2xl p-4 hover:border-warm-amber/30 transition duration-300">
-              <div className="relative h-14 w-14 shrink-0 flex items-center justify-center rounded-full bg-warm-bg/85 border border-warm-border">
-                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.01)" strokeWidth="2.5" />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="16"
-                    fill="none"
-                    stroke="var(--color-warm-amber)"
-                    strokeWidth="2.5"
-                    strokeDasharray="100"
-                    strokeDashoffset={100 - pct}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000 ease-out"
-                    style={{ transform: "rotate(-90deg)", transformOrigin: "18px 18px" }}
-                  />
-                </svg>
-                <span className="text-sm font-mono font-bold text-warm-amber">{level}</span>
-              </div>
-              <div>
-                <p className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">Level Progression</p>
-                <h4 className="font-quick font-bold text-sm text-warm-text mt-0.5">{pct}% complete</h4>
-                <p className="text-[9px] text-warm-textMuted font-mono mt-0.5">{totalXp} Total XP</p>
-              </div>
-            </div>
+        {/* Level chip */}
+        <div className="flex items-center gap-3 bg-warm-surface/60 backdrop-blur-md border border-warm-border rounded-2xl px-4 py-3 shrink-0 shadow-lg shadow-black/20">
+          <div className="relative h-11 w-11 shrink-0 flex items-center justify-center">
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="16" fill="none" stroke="var(--color-warm-border)" strokeWidth="2.5" />
+              <circle
+                cx="18"
+                cy="18"
+                r="16"
+                fill="none"
+                stroke="var(--color-warm-amber)"
+                strokeWidth="2.5"
+                strokeDasharray="100"
+                strokeDashoffset={100 - pct}
+                strokeLinecap="round"
+                className="transition-all duration-1000 ease-out"
+                style={{ transform: "rotate(-90deg)", transformOrigin: "18px 18px" }}
+              />
+            </svg>
+            <span className="text-sm font-mono font-bold text-warm-amber">{level}</span>
+          </div>
+          <div className="leading-tight">
+            <p className="text-xs font-medium text-warm-text">Level {level}</p>
+            <p className="text-xs text-warm-textMuted mt-0.5">{pct}% · {totalXp} XP</p>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* ── THREE COLUMN COMMAND CENTER GRID (12-column) ── */}
+      {/* ── MAIN + SIDEBAR GRID ── */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-12">
-        
-        {/* ── COLUMN 1: QUEST BOARD (Left sidebar - col-span-3, order-2) ── */}
-        <div className="col-span-12 lg:col-span-3 order-2 lg:order-1 space-y-6">
-          
-          {/* Active Quests Board */}
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[9px] font-mono uppercase tracking-widest text-warm-amber">Quest Board</p>
-                <h2 className="font-space font-bold text-lg text-warm-text mt-0.5">Active Quests</h2>
+
+        {/* ── MAIN COLUMN (focal point) ── */}
+        <div className="col-span-12 lg:col-span-8 space-y-6">
+
+          {/* Focus next — the single clear thing to do */}
+          <section className="relative overflow-hidden bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 sm:p-8 space-y-5 shadow-xl shadow-black/25 animate-card-rise" style={{ animationDelay: "0.05s" }}>
+            <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-warm-amber/10 blur-3xl" />
+            <div className="pointer-events-none absolute -left-16 -bottom-16 h-44 w-44 rounded-full bg-warm-teal/10 blur-3xl" />
+            <p className="relative text-xs font-semibold uppercase tracking-wider text-warm-amber">
+              Focus next
+            </p>
+
+            {recommendedMission ? (
+              <div className="space-y-5">
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-2 h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: priorityColor(recommendedMission.priority) }}
+                  />
+                  <h2 className="font-space text-xl sm:text-2xl font-semibold text-warm-text leading-snug">
+                    {recommendedMission.title}
+                  </h2>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="text-warm-textMuted font-mono">
+                    ~{recommendedMission.calibrated_estimate ?? recommendedMission.estimated_minutes ?? 30} min
+                  </span>
+                  {(() => {
+                    const deadline = getDeadlineState(recommendedMission.due_date);
+                    if (!deadline) return null;
+                    const isToday = deadline.state === "today";
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border"
+                        style={{
+                          color: isToday ? "#f87171" : "var(--color-warm-amber)",
+                          borderColor: isToday ? "rgba(248,113,113,0.25)" : "rgba(240,168,104,0.25)",
+                          backgroundColor: isToday ? "rgba(248,113,113,0.08)" : "rgba(240,168,104,0.08)",
+                        }}
+                      >
+                        {deadline.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {(() => {
+                  const recEstimate = recommendedMission.calibrated_estimate ?? recommendedMission.estimated_minutes ?? 30;
+                  const recFocused = recommendedMission.actual_minutes_history?.reduce((a, b: number) => a + b, 0) || 0;
+                  const recIsCurrent = timerContext.taskId === recommendedMission.id;
+                  const recIsRunning = timerContext.running && timerContext.stage === "session" && !timerContext.isBreakMode;
+                  const recLiveMins = (recIsCurrent && recIsRunning) ? (timerContext.elapsed / 60) : 0;
+                  const recCurrentFocused = recFocused + recLiveMins;
+                  
+                  const recDisplayPercent = recEstimate ? Math.round((recCurrentFocused / recEstimate) * 100) : 0;
+                  const recBarPercent = recEstimate ? Math.min(100, Math.round((recCurrentFocused / recEstimate) * 100)) : 0;
+
+                  return (
+                    <div className="w-full space-y-1 mt-1 pb-2">
+                      <div className="flex justify-between items-center text-[11px] font-mono text-warm-textMuted">
+                        <span>Focus Progress</span>
+                        <span className={recDisplayPercent >= 100 ? "text-warm-teal font-bold" : "text-warm-amber font-bold"}>
+                          {recDisplayPercent}% ({Math.round(recCurrentFocused * 10) / 10} / {recEstimate}m)
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-warm-surface2 border border-warm-border rounded-full overflow-hidden relative">
+                        <motion.div
+                          className="h-full rounded-full bg-gradient-to-r from-warm-amber to-[#f87171]"
+                          initial={{ width: 0 }}
+                          animate={{ 
+                            width: `${recBarPercent}%`,
+                            boxShadow: recIsCurrent && recIsRunning 
+                              ? [
+                                  "0 0 4px rgba(240, 168, 104, 0.4)",
+                                  "0 0 12px rgba(240, 168, 104, 0.8)",
+                                  "0 0 4px rgba(240, 168, 104, 0.4)"
+                                ]
+                              : "0 0 0px rgba(0,0,0,0)"
+                          }}
+                          transition={{ 
+                            width: { type: "spring", stiffness: 80, damping: 15 },
+                            boxShadow: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <Link
+                  href={`/app/timer?task=${recommendedMission.id}`}
+                  className="group relative w-full flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-warm-teal text-warm-bg font-quick font-bold text-base py-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(94,234,212,0.35)] active:translate-y-0 active:scale-[0.99]"
+                >
+                  {/* light sweep on hover */}
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
+                  <span className="relative flex items-center gap-2">
+                    Start focus
+                    <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                  </span>
+                </Link>
               </div>
-              <Link href="/app/tasks" className="text-xs text-warm-amber hover:underline font-bold font-quick">
-                Manage Quests →
+            ) : (
+              <div className="py-6 text-center space-y-3">
+                <p className="text-warm-textMuted text-sm">
+                  Nothing queued right now. You're all caught up.
+                </p>
+                <Link
+                  href="/app/tasks"
+                  className="inline-block rounded-xl bg-primary hover:bg-primary-dim text-white font-quick font-bold text-sm px-6 py-3 transition-colors duration-200"
+                >
+                  Add a task
+                </Link>
+              </div>
+            )}
+          </section>
+
+          {/* Tasks list */}
+          <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 space-y-4 shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.1s" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-space font-semibold text-lg text-warm-text">Tasks</h2>
+              <Link href="/app/tasks" className="text-sm text-warm-amber hover:underline font-medium">
+                View all →
               </Link>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {activeTasks.length === 0 ? (
-                <div className="border border-dashed border-warm-border bg-warm-surface2/30 rounded-xl p-8 text-center text-warm-textMuted">
-                  <p className="text-sm font-quick">No active quests right now.</p>
-                  <Link href="/app/tasks" className="text-xs text-warm-amber underline font-bold mt-2 inline-block">
-                    Create your first quest
+                <div className="border border-dashed border-warm-border bg-warm-surface2/30 rounded-xl p-8 text-center">
+                  <p className="text-sm text-warm-textMuted">No active tasks right now.</p>
+                  <Link href="/app/tasks" className="text-sm text-warm-amber underline font-medium mt-2 inline-block">
+                    Create your first task
                   </Link>
                 </div>
               ) : (
-                activeTasks.slice(0, 4).map(task => {
+                activeTasks.slice(0, 5).map(task => {
                   const deadline = getDeadlineState(task.due_date);
-                  
-                  let borderClass = "border-warm-border/50";
-                  let shadowClass = "";
-                  let motionProps = {};
-                  
-                  if (deadline?.state === "today") {
-                    borderClass = "border-[#f87171]";
-                    shadowClass = "shadow-[0_0_12px_rgba(248,113,113,0.25)]";
-                  } else if (deadline?.state === "imminent") {
-                    motionProps = {
-                      animate: { borderColor: ["#f0a868", "#f87171", "#f0a868"] },
-                      transition: { repeat: Infinity, duration: 2, ease: "easeInOut" }
-                    };
-                  } else if (deadline?.state === "soon") {
-                    borderClass = "border-l-[3px] border-l-[#f0a868] border-t-warm-border/50 border-r-warm-border/50 border-b-warm-border/50";
-                  }
-                  
                   return (
-                    <motion.div
+                    <div
                       key={task.id}
-                      {...motionProps}
-                      className={`flex items-center justify-between border bg-warm-surface2/40 rounded-xl p-4 hover:border-warm-amber/20 transition duration-200 ${borderClass} ${shadowClass}`}
+                      className="group flex items-center justify-between gap-3 border border-warm-border/60 bg-warm-surface2/40 rounded-xl p-4 transition-all duration-200 hover:border-warm-amber/30 hover:bg-warm-surface2/70 hover:translate-x-0.5"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-[10px] shrink-0">
-                          {task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : "🟡"}
-                        </span>
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: priorityColor(task.priority) }}
+                        />
                         <div className="min-w-0">
-                          <h4 className="font-quick font-bold text-sm text-warm-text truncate">{task.title}</h4>
-                          <span className="text-[9px] text-warm-textMuted font-mono uppercase mt-0.5 block truncate">
-                            {task.energy} energy &middot; +{task.xp} XP
+                          <h4 className="font-medium text-sm text-warm-text truncate">{task.title}</h4>
+                          <span className="text-xs text-warm-textMuted mt-0.5 block truncate">
+                            {deadline ? deadline.label : `${task.energy} energy · +${task.xp} XP`}
                           </span>
+                          {(() => {
+                            const est = task.calibrated_estimate ?? task.estimated_minutes;
+                            if (est == null || est <= 0) return null;
+
+                            const histFocused = task.actual_minutes_history?.reduce((a, b: number) => a + b, 0) || 0;
+                            const isCur = timerContext.taskId === task.id;
+                            const isRun = timerContext.running && timerContext.stage === "session" && !timerContext.isBreakMode;
+                            const liveMins = (isCur && isRun) ? (timerContext.elapsed / 60) : 0;
+                            const totalCurFocused = histFocused + liveMins;
+                            
+                            const dispPct = Math.round((totalCurFocused / est) * 100);
+                            const barPct = Math.min(100, Math.round((totalCurFocused / est) * 100));
+
+                            return (
+                              <div className="mt-2 w-48 sm:w-64 space-y-0.5">
+                                <div className="flex justify-between items-center text-[9px] font-mono text-warm-textMuted">
+                                  <span>Focus: {dispPct}%</span>
+                                  <span>{Math.round(totalCurFocused * 10) / 10} / {est}m</span>
+                                </div>
+                                <div className="h-1 w-full bg-warm-surface border border-warm-border rounded-full overflow-hidden relative">
+                                  <motion.div
+                                    className="h-full rounded-full bg-gradient-to-r from-warm-amber to-[#f87171]"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${barPct}%` }}
+                                    transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                       <Link
                         href={`/app/timer?task=${task.id}`}
-                        className="rounded-full border border-warm-border bg-warm-surface hover:bg-warm-surface2 hover:border-warm-amber/30 text-warm-text px-3.5 py-1.5 text-[10px] font-quick font-bold transition duration-200 shrink-0 ml-2"
+                        className="rounded-lg border border-warm-border bg-warm-surface hover:border-warm-amber/40 hover:text-warm-amber text-warm-text px-4 py-2 text-xs font-medium transition-colors duration-200 shrink-0"
                       >
-                        ▶ focus
+                        Focus
                       </Link>
-                    </motion.div>
+                    </div>
                   );
                 })
               )}
             </div>
           </section>
 
-          {/* Squire's Checklist */}
-          {!quickstartDismissed && !quickstartCompleted && (
-            <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-md relative">
-              <button
-                onClick={dismissQuickstart}
-                className="absolute top-4 right-4 text-warm-textMuted hover:text-warm-text transition-colors text-xs font-mono font-bold"
-                aria-label="Dismiss Quickstart"
-              >
-                CLOSE
-              </button>
-              
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <p className="text-[9px] font-mono uppercase tracking-widest text-warm-amber">
-                    GETTING STARTED
-                  </p>
-                  <h2 className="font-space font-bold text-base text-warm-text mt-0.5">
-                    First Trials
-                  </h2>
-                </div>
-                <span className="rounded-full bg-warm-bg border border-warm-border px-2.5 py-0.5 text-[10px] font-mono text-warm-textMuted mr-12">
-                  {completedCount}/3
-                </span>
-              </div>
-
-              <div className="space-y-2.5">
-                {[
-                  {
-                    id: "plan",
-                    title: "Create your first task",
-                    desc: "Go to Tasks and add a task to get started",
-                    xp: 25,
-                    done: hasPlanned,
-                    href: "/app/tasks",
-                    btnText: "Go to Tasks →",
-                  },
-                  {
-                    id: "run",
-                    title: "Complete your first focus block",
-                    desc: "Start a 25-minute focus session with the timer",
-                    xp: 50,
-                    done: hasRun,
-                    href: "/app/timer",
-                    btnText: "Start Timer →",
-                  },
-                  {
-                    id: "tick",
-                    title: "Create a contract",
-                    desc: "Swear and honor your first consistency contract",
-                    xp: 25,
-                    done: hasTicked,
-                    href: "/app/contracts",
-                    btnText: "View Contracts →",
-                  },
-                ].map(item => (
-                  <div
-                    key={item.id}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between border border-warm-border/50 bg-warm-surface2/30 rounded-xl p-3.5 gap-3 transition duration-200 ${
-                      item.done ? "opacity-45" : "hover:border-warm-amber/20"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-[10px] font-bold ${
-                          item.done
-                            ? "bg-warm-teal border-warm-teal text-warm-bg"
-                            : "border-warm-border text-warm-amber/60"
-                        }`}
-                      >
-                        {item.done ? "✓" : "⚡"}
-                      </div>
-                      <div>
-                        <h3 className={`font-quick font-bold text-xs text-warm-text ${item.done ? "line-through text-warm-textMuted" : ""}`}>
-                          {item.title}
-                        </h3>
-                        <p className="font-sans text-[10px] text-warm-textMuted mt-0.5">{item.desc}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 self-end sm:self-auto">
-                      <span className="font-mono text-[10px] text-warm-amber font-bold">
-                        +{item.xp} XP
-                      </span>
-                      {!item.done && (
-                        <Link
-                          href={item.href}
-                          className="rounded-full bg-warm-text/5 border border-warm-border text-warm-text px-3 py-1 text-[10px] font-quick font-bold hover:bg-warm-text/10 transition duration-200"
-                        >
-                          {item.btnText}
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-
-        {/* ── COLUMN 2: WAR ROOM HERO (Center main area - col-span-6, order-1) ── */}
-        <div className="col-span-12 lg:col-span-6 order-1 lg:order-2 space-y-6">
-          
-          {/* War Room Hero Card */}
-          <section className="bg-[#1a1714] border border-[rgba(255,245,235,0.08)] rounded-2xl p-8 shadow-[0_24px_64px_rgba(0,0,0,0.5)] space-y-6">
-            <div>
-              <h1 className="font-space text-2xl font-semibold text-warm-cream leading-tight">
-                Good {greetingLabel === "Good morning" ? "morning" : greetingLabel === "Good afternoon" ? "afternoon" : "evening"}, {name}.
-              </h1>
-              <p className="text-sm text-warm-textMuted mt-1">
-                The realm awaits. Let's conquer the next battle.
-              </p>
-            </div>
-            
-            <div className="h-[1px] bg-[rgba(255,245,235,0.08)] w-full" />
-            
-            {recommendedMission ? (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-warm-amber">
-                    Next Recommended Mission
-                  </p>
-                  <h3 className="font-space text-lg font-semibold text-warm-cream mt-1 leading-snug">
-                    {recommendedMission.title}
-                  </h3>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-1">
-                  {/* Time Cost Badge */}
-                  <div className="flex flex-col">
-                    <span className="text-xs text-warm-amber font-mono font-semibold">
-                      ⏱ ~{recommendedMission.calibrated_estimate ?? recommendedMission.estimated_minutes ?? 30} min
-                    </span>
-                    <span className="text-[10px] text-warm-textMuted font-sans">
-                      {recommendedMission.calibrated_estimate && recommendedMission.estimated_minutes && recommendedMission.calibrated_estimate !== recommendedMission.estimated_minutes
-                        ? `(you usually estimate ${recommendedMission.estimated_minutes} min for this)`
-                        : `(based on initial estimate)`}
-                    </span>
-                  </div>
-
-                  {/* Deadline Badge */}
-                  {(() => {
-                    const deadline = getDeadlineState(recommendedMission.due_date);
-                    if (!deadline) return null;
-                    if (deadline.state === "today") {
-                      return (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#f87171]/10 text-[#f87171] border border-[#f87171]/20 animate-pulse self-start mt-0.5">
-                          ● {deadline.label}
-                        </span>
-                      );
-                    }
-                    return (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-warm-amber/10 text-warm-amber border border-warm-amber/15 self-start mt-0.5">
-                        ● {deadline.label}
-                      </span>
-                    );
-                  })()}
-                </div>
-
-                <Link
-                  href={`/app/timer?task=${recommendedMission.id}`}
-                  className="btn-shimmer-sweep w-full flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-dim text-white font-quick font-bold text-sm py-4 hover:shadow-[0_0_24px_rgba(139,92,246,0.35)] transition-all duration-300 active:scale-95 text-center block"
-                >
-                  ⚔️ Enter the Battle
-                </Link>
-              </div>
-            ) : (
-              <div className="text-center py-4 text-warm-textMuted text-sm font-quick">
-                All active quests are completed. Swear a new oath or rest up at the Hearth! 🛡️
-              </div>
-            )}
-          </section>
-
-          {/* Today's Battlefield Day Vessel Progress Bar */}
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-6 shadow-lg space-y-4">
-            <div>
-              <p className="text-[10px] font-mono uppercase tracking-widest text-warm-textMuted">Today's Battlefield</p>
-              <h2 className="font-space font-bold text-base text-warm-cream mt-0.5">Day Vessel Capacity</h2>
+          {/* Today's capacity */}
+          <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 space-y-4 shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.15s" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-space font-semibold text-lg text-warm-text">Today's capacity</h2>
+              <span className="text-sm text-warm-textMuted font-mono">
+                {(plannedMinutes / 60).toFixed(1)}h / {displayEnergyHours.toFixed(1)}h
+              </span>
             </div>
 
-            <div className="space-y-2.5">
-              <div className="h-3 w-full bg-[#0e0c0a] rounded-full overflow-hidden border border-warm-border/30">
-                <div
-                  className={`h-full rounded-full transition-all duration-1000 ${
-                    isOvercapacity 
-                      ? "bg-[#f87171] drop-shadow-[0_0_8px_rgba(248,113,113,0.4)] animate-pulse" 
-                      : "bg-gradient-to-r from-[#a78bfa] to-[#f0a868]"
-                  }`}
-                  style={{ width: `${fillPercentage}%` }}
-                />
-              </div>
-
-              <div className="flex justify-between text-xs text-warm-textMuted font-mono">
-                <span>{(plannedMinutes / 60).toFixed(1)}h planned</span>
-                <span>{displayEnergyHours.toFixed(1)}h energy capacity</span>
-              </div>
-              
-              {isOvercapacity && (
-                <p className="text-[10px] text-[#f87171] font-quick font-semibold animate-pulse mt-1">
-                  ⚠️ OVERCAPACITY: You have planned more quests than your remaining daily focus energy allows. Consider postponing some tasks!
-                </p>
-              )}
+            <div className="h-2.5 w-full bg-warm-surface2 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${
+                  isOvercapacity
+                    ? "bg-gradient-to-r from-[#f0a868] to-[#f87171] shadow-[0_0_12px_rgba(248,113,113,0.4)]"
+                    : "bg-gradient-to-r from-warm-teal via-warm-amber to-warm-cream shadow-[0_0_12px_rgba(240,168,104,0.3)]"
+                }`}
+                style={{ width: `${fillPercentage}%` }}
+              />
             </div>
-          </section>
 
-          {/* Quick Actions Shortcuts */}
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 space-y-3 shadow-md">
-            <h4 className="text-[10px] font-mono uppercase tracking-widest text-warm-textMuted">
-              Quick Shortcuts
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              <Link href="/app/timer" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
-                ⏱️ Timer
-              </Link>
-              <Link href="/app/music" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
-                🎵 Music
-              </Link>
-              <Link href="/app/coach" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
-                🤖 AI Coach
-              </Link>
-              <Link href="/app/challenges" className="flex items-center gap-2 rounded-xl bg-warm-surface2 border border-warm-border p-3 text-xs font-bold text-warm-text hover:border-warm-amber/30 transition duration-200">
-                🏆 Arena
-              </Link>
-            </div>
+            <p className="text-sm text-warm-textMuted">
+              {isOvercapacity
+                ? "You've planned more than fits in your remaining focus time today. Consider moving a task to tomorrow."
+                : `${displayEnergyHours.toFixed(1)}h of focus time left today.`}
+            </p>
           </section>
         </div>
 
-        {/* ── COLUMN 3: GAMIFICATION & STREAK (Right sidebar - col-span-3, order-3) ── */}
-        <div className="col-span-12 lg:col-span-3 order-3 lg:order-3 space-y-6">
-          
-          {/* Card 1: The Familiar State */}
-          <section className={`border rounded-2xl p-5 shadow-md flex gap-3.5 items-start transition duration-300 ${familiarMessage.style}`}>
-            <span className="text-2xl shrink-0 mt-0.5">{familiarMessage.icon}</span>
-            <div className="space-y-0.5">
-              <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">
-                Familiar State
-              </h4>
-              <p className="text-xs font-quick font-semibold leading-relaxed">
-                {familiarMessage.text}
-              </p>
-            </div>
-          </section>
+        {/* ── SIDEBAR ── */}
+        <div className="col-span-12 lg:col-span-4 space-y-6">
 
-          {/* Card 2: Quick Stats (Minimalist) */}
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 shadow-md space-y-4">
-            <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">
-              Command Metrics
-            </h4>
-            
-            <div className="grid grid-cols-1 gap-3 font-space">
-              <div className="flex items-center gap-3 bg-warm-surface2/60 border border-warm-border/50 rounded-xl p-3.5 hover:border-warm-amber/20 transition">
-                <span className="text-2xl shrink-0">🔥</span>
-                <div>
-                  <p className="text-[8px] font-mono uppercase tracking-widest text-warm-textMuted">Oath Streak</p>
-                  <p className="text-sm font-semibold text-warm-amber">{streakDays > 0 ? `${streakDays} Day Streak` : "0 Days"}</p>
-                </div>
+          {/* Today stats */}
+          <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 space-y-3 shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.2s" }}>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-warm-textMuted">Today</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-warm-surface2/50 border border-warm-border/60 rounded-xl p-4 transition-colors duration-200 hover:border-warm-amber/30">
+                <p className="text-xs text-warm-textMuted">Streak</p>
+                <p className="text-2xl font-mono font-semibold text-warm-amber mt-1">{streakDays}</p>
+                <p className="text-xs text-warm-textMuted mt-0.5">{streakDays === 1 ? "day" : "days"}</p>
               </div>
-
-              <div className="flex items-center gap-3 bg-warm-surface2/60 border border-warm-border/50 rounded-xl p-3.5 hover:border-warm-amber/20 transition">
-                <span className="text-2xl shrink-0">⚡</span>
-                <div>
-                  <p className="text-[8px] font-mono uppercase tracking-widest text-warm-textMuted">Focus Energy</p>
-                  <p className="text-sm font-semibold text-warm-teal">{displayEnergyHours.toFixed(1)}h Remaining</p>
-                </div>
+              <div className="bg-warm-surface2/50 border border-warm-border/60 rounded-xl p-4 transition-colors duration-200 hover:border-warm-teal/30">
+                <p className="text-xs text-warm-textMuted">Focus left</p>
+                <p className="text-2xl font-mono font-semibold text-warm-teal mt-1">{displayEnergyHours.toFixed(1)}</p>
+                <p className="text-xs text-warm-textMuted mt-0.5">hours</p>
               </div>
             </div>
           </section>
 
-          {/* Active Mastery Path */}
-          <section className="bg-warm-surface border border-warm-border rounded-2xl p-5 space-y-3 shadow-md">
-            <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-purple">
-              ACTIVE PATHWAY
-            </h4>
+          {/* Companion */}
+          <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 flex gap-4 items-start shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.25s" }}>
+            <span className="text-3xl shrink-0" aria-hidden>{activePet?.emoji ?? "🦉"}</span>
+            <div className="space-y-1">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-warm-textMuted">Companion</h3>
+              <p className="text-sm text-warm-text leading-relaxed">{familiarMessage.text}</p>
+            </div>
+          </section>
+
+          {/* Active path */}
+          <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 space-y-3 shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.3s" }}>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-warm-textMuted">Active path</h3>
             {primaryPath ? (
               <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-space font-bold text-warm-text flex items-center gap-1.5">
-                    <span>{CATEGORY_ICONS[primaryPath.category as keyof typeof CATEGORY_ICONS]}</span>
-                    <span className="truncate max-w-[150px]">{primaryPath.title}</span>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="font-medium text-sm text-warm-text flex items-center gap-2 min-w-0">
+                    <span aria-hidden>{CATEGORY_ICONS[primaryPath.category as keyof typeof CATEGORY_ICONS]}</span>
+                    <span className="truncate">{primaryPath.title}</span>
                   </span>
-                  <span className="font-mono text-[10px] text-warm-teal font-bold">
+                  <span className="font-mono text-sm text-warm-teal font-semibold shrink-0">
                     {primaryPath.percent}%
                   </span>
                 </div>
@@ -925,54 +880,112 @@ export default function DashboardPage() {
                     style={{ width: `${primaryPath.percent}%` }}
                   />
                 </div>
-                <p className="text-[9px] text-warm-textMuted font-mono uppercase mt-1">
-                  Rank: {primaryPath.percent < 25 ? "Novice" :
-                         primaryPath.percent < 50 ? "Apprentice" :
-                         primaryPath.percent < 75 ? "Practitioner" :
-                         primaryPath.percent < 100 ? "Specialist" :
-                         "Master"}
-                </p>
               </div>
             ) : (
-              <p className="text-xs text-warm-textMuted font-sans">
+              <p className="text-sm text-warm-textMuted">
                 No active paths.{" "}
-                <Link href="/app/paths" className="text-warm-amber underline font-semibold">
-                  Start a Path
+                <Link href="/app/paths" className="text-warm-amber underline font-medium">
+                  Start one
                 </Link>
-                .
               </p>
             )}
           </section>
 
+          {/* Get started */}
+          {!quickstartDismissed && !quickstartCompleted && (
+            <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 space-y-4 relative shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.35s" }}>
+              <button
+                onClick={dismissQuickstart}
+                className="absolute top-5 right-5 text-warm-textMuted hover:text-warm-text transition-colors text-xs font-medium"
+                aria-label="Dismiss"
+              >
+                Dismiss
+              </button>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-warm-textMuted">Get started</h3>
+                <p className="text-sm text-warm-text mt-1">{completedCount} of 3 done</p>
+              </div>
+
+              <div className="space-y-2.5">
+                {[
+                  { id: "plan", title: "Create your first task", done: hasPlanned, href: "/app/tasks", btnText: "Go to Tasks" },
+                  { id: "run", title: "Complete a focus session", done: hasRun, href: "/app/timer", btnText: "Start timer" },
+                  { id: "tick", title: "Create a contract", done: hasTicked, href: "/app/contracts", btnText: "View contracts" },
+                ].map(item => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between gap-3 border border-warm-border/60 bg-warm-surface2/30 rounded-xl p-3.5 ${item.done ? "opacity-50" : ""}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-xs font-bold ${
+                          item.done ? "bg-warm-teal border-warm-teal text-warm-bg" : "border-warm-border text-warm-textMuted"
+                        }`}
+                      >
+                        {item.done ? "✓" : ""}
+                      </div>
+                      <h4 className={`text-sm text-warm-text truncate ${item.done ? "line-through text-warm-textMuted" : ""}`}>
+                        {item.title}
+                      </h4>
+                    </div>
+                    {!item.done && (
+                      <Link
+                        href={item.href}
+                        className="rounded-lg border border-warm-border text-warm-text px-3 py-1.5 text-xs font-medium hover:border-warm-amber/40 hover:text-warm-amber transition-colors duration-200 shrink-0"
+                      >
+                        {item.btnText}
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Quick shortcuts */}
+          <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 space-y-3 shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.4s" }}>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-warm-textMuted">Shortcuts</h3>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { href: "/app/timer", label: "Timer" },
+                { href: "/app/music", label: "Music" },
+                { href: "/app/coach", label: "AI Coach" },
+                { href: "/app/challenges", label: "Challenges" },
+              ].map(s => (
+                <Link
+                  key={s.href}
+                  href={s.href}
+                  className="rounded-xl bg-warm-surface2/50 border border-warm-border/60 px-3 py-3 text-sm font-medium text-warm-text hover:border-warm-amber/40 hover:text-warm-amber hover:-translate-y-0.5 transition-all duration-200 text-center"
+                >
+                  {s.label}
+                </Link>
+              ))}
+            </div>
+          </section>
+
           {/* Demo Lab */}
           {!user && (
-            <section className="relative overflow-hidden bg-gradient-to-br from-warm-purple/10 via-warm-surface to-warm-surface border border-warm-border rounded-2xl p-5 space-y-3 shadow-md">
-              <h4 className="text-[9px] font-mono uppercase tracking-widest text-warm-purple">
-                DEMO LAB
-              </h4>
+            <section className="bg-warm-surface/70 backdrop-blur-md border border-warm-border rounded-2xl p-6 space-y-3 shadow-lg shadow-black/20 animate-card-rise" style={{ animationDelay: "0.45s" }}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-warm-textMuted">Demo</h3>
               <div className="flex justify-between items-center gap-2">
-                <div>
-                  <p className="text-[9px] font-mono uppercase tracking-widest text-warm-textMuted">Demo Practice</p>
-                  <p className="text-xs font-quick font-bold text-warm-text mt-1">{totalXp} XP</p>
-                </div>
+                <p className="text-sm text-warm-text">{totalXp} XP earned</p>
                 <button
                   onClick={() => {
                     awardXp(50, "demo");
                     fireConfetti();
                     bus.emit("pet:react", { message: "Practice completed! +50 XP!" });
                   }}
-                  className="rounded-full bg-warm-purple text-warm-bg px-4 py-2 text-[10px] font-quick font-bold hover:shadow-[0_0_15px_rgba(167,139,250,0.4)] hover:scale-[1.02] transition duration-200"
+                  className="rounded-lg bg-warm-purple text-warm-bg px-4 py-2 text-xs font-medium hover:opacity-90 transition-opacity duration-200"
                 >
-                  Earn Demo XP
+                  Earn demo XP
                 </button>
               </div>
             </section>
           )}
-
         </div>
-
       </div>
     </div>
+    </>
   );
 }
 
@@ -1025,11 +1038,11 @@ function MorningBriefingModal({
                 <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#f0a868]/70 mb-1">
                   {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 </p>
-                <h2 className="font-cinzel text-xl font-bold text-[#f5efe8]">
-                  Your Morning Briefing
+                <h2 className="font-space text-xl font-bold text-[#f5efe8]">
+                  Good morning
                 </h2>
-                <p className="mt-1 text-xs font-quick text-[rgba(245,239,232,0.45)] italic">
-                  A knight who knows the battlefield wins before the fight begins.
+                <p className="mt-1 text-sm font-quick text-[rgba(245,239,232,0.55)]">
+                  Here's a quick look at your day before you start.
                 </p>
               </div>
 

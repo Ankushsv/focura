@@ -48,6 +48,7 @@ export default function StatsPage() {
   const [sessions, setSessions] = useState<FocusSession[]>([]);
   const [weekBars, setWeekBars] = useState<DayBar[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [ritualStats, setRitualStats] = useState({ started: 0, completed: 0, dismissed: 0 });
 
   useEffect(() => {
     async function loadSessions() {
@@ -87,6 +88,19 @@ export default function StatsPage() {
           bars.push({ label: dayNames[d.getDay()], minutes: dayMinutes });
         }
         setWeekBars(bars);
+
+        // Fetch ritual events
+        const { data: ritualEvents } = await supabase
+          .from("user_app_events")
+          .select("event_type")
+          .eq("user_id", user.id)
+          .in("event_type", ["ritual_started", "ritual_completed", "ritual_dismissed"]);
+        const re = ritualEvents ?? [];
+        setRitualStats({
+          started: re.filter((e) => e.event_type === "ritual_started").length,
+          completed: re.filter((e) => e.event_type === "ritual_completed").length,
+          dismissed: re.filter((e) => e.event_type === "ritual_dismissed").length,
+        });
       } catch (err) {
         console.warn("Failed to load sessions for stats:", err);
       } finally {
@@ -476,6 +490,36 @@ export default function StatsPage() {
           ))}
         </div>
       </div>
+
+      {/* ── RITUAL ACTIVITY ── */}
+      {ritualStats.started > 0 && (
+        <div className="max-w-4xl mx-auto mt-10">
+          <div className="rounded-2xl border border-warm-amber/15 bg-warm-surface/60 backdrop-blur-md p-6 shadow-lg shadow-black/10 space-y-4">
+            <h2 className="font-space font-bold text-lg text-warm-text flex items-center gap-2">
+              <span className="text-xl">🐥</span> Ritual Activity
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-xl bg-warm-amber/8 border border-warm-amber/15 p-4 text-center">
+                <p className="font-space text-2xl font-black text-warm-amber">{ritualStats.started}</p>
+                <p className="text-xs text-warm-textMuted font-quick mt-1">Rituals Started</p>
+              </div>
+              <div className="rounded-xl bg-warm-teal/8 border border-warm-teal/15 p-4 text-center">
+                <p className="font-space text-2xl font-black text-warm-teal">{ritualStats.completed}</p>
+                <p className="text-xs text-warm-textMuted font-quick mt-1">Rituals Completed</p>
+              </div>
+              <div className="rounded-xl bg-warm-purple/8 border border-warm-purple/15 p-4 text-center">
+                <p className="font-space text-2xl font-black text-warm-purple">
+                  {ritualStats.started > 0 ? Math.round((ritualStats.completed / ritualStats.started) * 100) : 0}%
+                </p>
+                <p className="text-xs text-warm-textMuted font-quick mt-1">Completion Rate</p>
+              </div>
+            </div>
+            <p className="text-[11px] font-lora italic text-warm-textMuted/50 text-center">
+              "Showing up is the hardest part. You've shown up {ritualStats.started} {ritualStats.started === 1 ? 'time' : 'times'}."
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
