@@ -34,21 +34,21 @@
 }
 
 .light-theme {
-  color-scheme: dark;
-  --color-void: #0e0c0a;
-  --color-surface: #1a1714;
-  --color-text: #f5efe8;
-  --color-warm-bg: #0e0c0a;
-  --color-warm-surface: #1a1714;
-  --color-warm-surface2: #141210;
-  --color-warm-border: rgba(255, 245, 235, 0.07);
-  --color-warm-text: #f5efe8;
-  --color-warm-text-muted: rgba(245, 239, 232, 0.45);
-  --color-warm-text-hint: rgba(245, 239, 232, 0.18);
-  --color-warm-purple: #a78bfa;
-  --color-warm-teal: #5eead4;
-  --color-warm-amber: #f0a868;
-  --color-warm-cream: #f5e6d3;
+  color-scheme: light;
+  --color-void: #C4C3B6;
+  --color-surface: #d4d3c7;
+  --color-text: #1a1a17;
+  --color-warm-bg: #C4C3B6;
+  --color-warm-surface: #d4d3c7;
+  --color-warm-surface2: #cccbbe;
+  --color-warm-border: rgba(0, 0, 0, 0.1);
+  --color-warm-text: #1a1a17;
+  --color-warm-text-muted: rgba(40, 38, 32, 0.55);
+  --color-warm-text-hint: rgba(40, 38, 32, 0.25);
+  --color-warm-purple: #7c3aed;
+  --color-warm-teal: #0d9488;
+  --color-warm-amber: #b45309;
+  --color-warm-cream: #2c2a22;
 }
 
 /* ── Custom Reward Themes ── */
@@ -1710,6 +1710,31 @@ button:active:not(:disabled),
 
 .marquee-track:hover .marquee-content {
   animation-play-state: paused;
+}
+
+/* ── Dashboard polish: painting drift + elegant card entrance ── */
+@keyframes painting-drift {
+  0%   { transform: scale(1.1) translate3d(0, 0, 0); }
+  50%  { transform: scale(1.14) translate3d(-1.2%, -1%, 0); }
+  100% { transform: scale(1.1) translate3d(0, 0, 0); }
+}
+.animate-painting-drift {
+  animation: painting-drift 48s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-card-rise {
+  opacity: 0;
+  animation: card-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-painting-drift { animation: none; }
+  .animate-card-rise { animation: none; opacity: 1; }
 }
 
 
