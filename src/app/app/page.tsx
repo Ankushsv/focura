@@ -531,6 +531,51 @@ function DashboardInner() {
   const priorityColor = (p: string) =>
     p === "critical" ? "#f43f5e" : p === "high" ? "#f97316" : "#38bdf8";
 
+  const theOneThing = useMemo(() => {
+    // 1. Session active
+    if (timerContext.running && timerContext.taskId) {
+      const activeSessionTask = tasks.find(t => t.id === timerContext.taskId);
+      return {
+        text: `Currently in battle: ${activeSessionTask?.title || "Focus Session"}`,
+        btnText: "Return to Timer →",
+        href: `/app/timer?task=${timerContext.taskId}`
+      };
+    }
+    
+    // 2. Main quest set and not done
+    const actualMainQuest = tasks.find(t => !t.done && (t as any).is_main_quest === true);
+    if (actualMainQuest) {
+      const totalHp = (actualMainQuest.subtasks || []).reduce((sum: number, s: any) => sum + s.xp, 0);
+      const remainingHp = (actualMainQuest.subtasks || []).filter((s: any) => !s.done).reduce((sum: number, s: any) => sum + s.xp, 0);
+      const hpStr = actualMainQuest.isBoss && totalHp > 0 ? ` · ${remainingHp} HP remaining` : "";
+      return {
+        text: `${actualMainQuest.title}${hpStr}`,
+        btnText: "Continue →",
+        href: `/app/timer?task=${actualMainQuest.id}`
+      };
+    }
+
+    // 3. Tasks due today
+    if (todayTasks.length > 0) {
+      return {
+        text: `Due today: ${todayTasks[0].title}`,
+        btnText: "Start this →",
+        href: `/app/timer?task=${todayTasks[0].id}`
+      };
+    }
+
+    // 4. Recommended / AI pick
+    if (recommendedMission) {
+      return {
+        text: `${recommendedMission.title} · Recommended`,
+        btnText: "Start →",
+        href: `/app/timer?task=${recommendedMission.id}`
+      };
+    }
+
+    return null;
+  }, [timerContext.running, timerContext.taskId, tasks, todayTasks, recommendedMission]);
+
   return (
     <>
     {/* ── Ritual Overlay ── */}
@@ -564,6 +609,28 @@ function DashboardInner() {
         thisWeekCount={thisWeekTasks.length}
         availableFocusHours={availableFocusHours}
       />
+
+      {/* ── The One Thing Strip ── */}
+      {theOneThing && (
+        <div className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-realm-border bg-warm-surface/20 px-5 py-3.5 rounded-xl backdrop-blur-sm animate-fade-in relative z-20">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-realm-gold animate-pulse shrink-0" />
+            <p className="text-xs font-bold text-warm-text tracking-wide uppercase font-space mr-1 shrink-0">
+              The One Thing
+            </p>
+            <span className="text-warm-border/60 hidden sm:inline">|</span>
+            <p className="text-sm text-warm-text font-medium truncate">
+              {theOneThing.text}
+            </p>
+          </div>
+          <Link
+            href={theOneThing.href}
+            className="self-start sm:self-auto rounded-lg border border-realm-border/80 hover:border-realm-gold hover:text-realm-gold text-warm-text px-4 py-1.5 text-xs font-bold transition-all duration-200 shrink-0 font-quick"
+          >
+            {theOneThing.btnText}
+          </Link>
+        </div>
+      )}
 
       {/* ── TOP BAR: greeting + date + level ── */}
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 animate-card-rise">
@@ -696,17 +763,29 @@ function DashboardInner() {
                   );
                 })()}
 
-                <Link
-                  href={`/app/timer?task=${recommendedMission.id}`}
-                  className="group relative w-full flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-warm-teal text-warm-bg font-quick font-bold text-base py-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(94,234,212,0.35)] active:translate-y-0 active:scale-[0.99]"
+                <motion.div
+                  animate={!timerContext.running ? {
+                    boxShadow: [
+                      '0 0 12px rgba(232,151,90,0.2)',
+                      '0 0 24px rgba(232,151,90,0.4)',
+                      '0 0 12px rgba(232,151,90,0.2)'
+                    ]
+                  } : {}}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="rounded-xl overflow-hidden"
                 >
-                  {/* light sweep on hover */}
-                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
-                  <span className="relative flex items-center gap-2">
-                    Start focus
-                    <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
-                  </span>
-                </Link>
+                  <Link
+                    href={`/app/timer?task=${recommendedMission.id}`}
+                    className="group relative w-full flex items-center justify-center gap-2 overflow-hidden bg-warm-amber text-warm-bg font-quick font-bold text-base py-4 text-center transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]"
+                  >
+                    {/* light sweep on hover */}
+                    <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
+                    <span className="relative flex items-center gap-2">
+                      Start focus
+                      <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                    </span>
+                  </Link>
+                </motion.div>
               </div>
             ) : (
               <div className="py-6 text-center space-y-3">
@@ -843,9 +922,9 @@ function DashboardInner() {
                 <p className="text-2xl font-mono font-semibold text-warm-amber mt-1">{streakDays}</p>
                 <p className="text-xs text-warm-textMuted mt-0.5">{streakDays === 1 ? "day" : "days"}</p>
               </div>
-              <div className="bg-warm-surface2/50 border border-warm-border/60 rounded-xl p-4 transition-colors duration-200 hover:border-warm-teal/30">
+              <div className="bg-warm-surface2/50 border border-warm-border/60 rounded-xl p-4 transition-colors duration-200 hover:border-warm-amber/30">
                 <p className="text-xs text-warm-textMuted">Focus left</p>
-                <p className="text-2xl font-mono font-semibold text-warm-teal mt-1">{displayEnergyHours.toFixed(1)}</p>
+                <p className="text-2xl font-mono font-semibold text-warm-amber mt-1">{displayEnergyHours.toFixed(1)}</p>
                 <p className="text-xs text-warm-textMuted mt-0.5">hours</p>
               </div>
             </div>
@@ -870,13 +949,13 @@ function DashboardInner() {
                     <span aria-hidden>{CATEGORY_ICONS[primaryPath.category as keyof typeof CATEGORY_ICONS]}</span>
                     <span className="truncate">{primaryPath.title}</span>
                   </span>
-                  <span className="font-mono text-sm text-warm-teal font-semibold shrink-0">
+                  <span className="font-mono text-sm text-warm-teal/40 font-semibold shrink-0">
                     {primaryPath.percent}%
                   </span>
                 </div>
                 <div className="h-2 bg-warm-surface2 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-warm-teal transition-all duration-700"
+                    className="h-full bg-warm-teal/40 transition-all duration-700"
                     style={{ width: `${primaryPath.percent}%` }}
                   />
                 </div>

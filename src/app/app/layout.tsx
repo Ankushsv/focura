@@ -12,6 +12,7 @@ import { TimerProvider } from "@/components/providers/TimerProvider";
 import FloatingTimerOverlay from "@/components/timer/FloatingTimerOverlay";
 import FloatingAICoach from "@/components/coach/FloatingAICoach";
 import CelestialBackground from "@/components/ui/CelestialBackground";
+import RewardOverlay from "@/components/rewards/RewardOverlay";
 import { bus } from "@/lib/events";
 import { levelFromXp } from "@/lib/xp/levels";
 import {
@@ -445,6 +446,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <PetCompanion />
             <FloatingTimerOverlay />
             <FloatingAICoach />
+            <RewardOverlay />
           </div>
 
           {/* Onboarding Flow */}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Serif_Display, Inter, Space_Grotesk, Quicksand, Caveat, JetBrains_Mono, Permanent_Marker, Cinzel_Decorative, Lora } from "next/font/google";
+import { DM_Serif_Display, Inter, Space_Grotesk, Quicksand, Caveat, JetBrains_Mono, Permanent_Marker, Cinzel_Decorative, Lora, Lexend, Atkinson_Hyperlegible } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -12,6 +12,16 @@ const dmSerif = DM_Serif_Display({
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space",
+});
+const lexend = Lexend({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-lexend",
+});
+const atkinson = Atkinson_Hyperlegible({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-atkinson",
 });
 const quicksand = Quicksand({
   subsets: ["latin"],
@@ -49,7 +59,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${dmSerif.variable} ${spaceGrotesk.variable} ${quicksand.variable} ${caveat.variable} ${jetbrains.variable} ${permanentMarker.variable} ${cinzel.variable} ${lora.variable}`}>
+    <html lang="en" className={`${inter.variable} ${dmSerif.variable} ${spaceGrotesk.variable} ${lexend.variable} ${atkinson.variable} ${quicksand.variable} ${caveat.variable} ${jetbrains.variable} ${permanentMarker.variable} ${cinzel.variable} ${lora.variable}`}>
       <body>{children}</body>
     </html>
   );
