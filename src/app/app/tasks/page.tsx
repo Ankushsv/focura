@@ -11,6 +11,7 @@ import { useXp } from "@/components/providers/XpProvider";
 import { bus } from "@/lib/events";
 import { fireConfetti } from "@/lib/confetti";
 import { generateBreakdown, generateMicroStep } from "@/lib/tasks/breakdown";
+import { handleRewardRoll } from "@/lib/variableReward";
 import {
   ENERGY_LABELS,
   PRIORITY_ORDER,
@@ -129,8 +130,7 @@ export default function TasksPage() {
 
   function handleComplete(task: Task) {
     completeTask(task.id);
-    awardXp(task.xp, "tasks");
-    fireConfetti();
+    handleRewardRoll(task.xp, "tasks", awardXp);
     bus.emit("task:completed", { task });
     bus.emit("pet:react", {
       message: task.isBoss ? "Milestone task completed! High-five!" : "Task completed. One step closer!",
@@ -193,7 +193,7 @@ export default function TasksPage() {
   if (!loaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-warm-bg">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-warm-amber/30 border-t-warm-amber" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-warm-purple/30 border-t-warm-purple" />
       </div>
     );
   }
@@ -202,7 +202,7 @@ export default function TasksPage() {
     <div className="mx-auto max-w-[1400px] w-full px-4 sm:px-8 space-y-8">
       {/* ── Page Hero Banner ── */}
       <div className="relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface p-6 sm:p-8 shadow-xl">
-        <div className="absolute -left-16 -top-16 h-36 w-36 rounded-full bg-warm-amber/5 blur-2xl pointer-events-none" />
+        <div className="absolute -left-16 -top-16 h-36 w-36 rounded-full bg-warm-purple/5 blur-2xl pointer-events-none" />
         <div className="absolute right-6 top-6 font-mono text-[10px] text-warm-textMuted uppercase tracking-wider hidden sm:block">
           TASKS ✦ TARGETS
         </div>
@@ -215,7 +215,7 @@ export default function TasksPage() {
             </p>
             <p className="text-xs text-warm-textMuted mt-1.5">
               <span className="font-bold text-warm-text">{active.length}</span> tasks active &middot; sorted for{" "}
-              <span className="text-warm-amber font-bold">{ENERGY_LABELS[energy]}</span> energy
+              <span className="text-warm-amber/40 font-bold">{ENERGY_LABELS[energy]}</span> energy
             </p>
           </div>
 
@@ -228,7 +228,7 @@ export default function TasksPage() {
                   onClick={() => setEnergy(e)}
                   className={`rounded-full px-4 py-1.5 text-xs font-quick font-bold transition duration-200 ${
                     energy === e
-                      ? "bg-warm-surface text-warm-amber shadow"
+                      ? "bg-warm-surface text-warm-purple shadow"
                       : "text-warm-textMuted hover:text-warm-text"
                   }`}
                 >
@@ -239,7 +239,7 @@ export default function TasksPage() {
 
             <button
               onClick={() => setShowAdd((v) => !v)}
-              className="rounded-full bg-warm-amber text-warm-bg px-6 py-2 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+              className="rounded-full bg-warm-purple text-warm-bg px-6 py-2 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(147,112,240,0.15)] transition"
             >
               {showAdd ? "✕ Cancel" : "+ Add Task"}
             </button>
@@ -251,9 +251,9 @@ export default function TasksPage() {
       {showAdd && (
         <form
           onSubmit={handleAdd}
-          className="rounded-2xl border border-warm-amber/20 bg-warm-surface p-5 shadow-lg border-l-4 border-l-warm-amber"
+          className="rounded-2xl border border-warm-purple/20 bg-warm-surface p-5 shadow-lg border-l-4 border-l-warm-purple"
         >
-          <p className="mb-4 text-[10px] font-quick font-bold uppercase tracking-widest text-warm-amber">
+          <p className="mb-4 text-[10px] font-quick font-bold uppercase tracking-widest text-warm-purple">
             📋 New Task Form
           </p>
           <div className="flex flex-wrap items-center gap-3">
@@ -262,12 +262,12 @@ export default function TasksPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What task needs focus today?"
-              className="min-w-[260px] flex-1 rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text outline-none placeholder:text-warm-textMuted/50 focus:border-warm-amber transition"
+              className="min-w-[260px] flex-1 rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text outline-none placeholder:text-warm-textMuted/50 focus:border-warm-purple transition"
             />
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as Priority)}
-              className="rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text focus:outline-none focus:border-warm-amber transition"
+              className="rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text focus:outline-none focus:border-warm-purple transition"
             >
               {PRIORITY_ORDER.map((p) => (
                 <option key={p} value={p}>
@@ -278,7 +278,7 @@ export default function TasksPage() {
             <select
               value={taskEnergy}
               onChange={(e) => setTaskEnergy(e.target.value as Energy)}
-              className="rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text focus:outline-none focus:border-warm-amber transition"
+              className="rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text focus:outline-none focus:border-warm-purple transition"
             >
               {ENERGIES.map((e) => (
                 <option key={e} value={e}>
@@ -299,7 +299,7 @@ export default function TasksPage() {
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="rounded-xl border border-warm-border bg-warm-surface2 px-3 py-2 text-sm font-mono text-warm-text focus:outline-none focus:border-warm-amber transition"
+                className="rounded-xl border border-warm-border bg-warm-surface2 px-3 py-2 text-sm font-mono text-warm-text focus:outline-none focus:border-warm-purple transition"
               />
             </div>
 
@@ -316,8 +316,8 @@ export default function TasksPage() {
                     onClick={() => setEstimatedMinutes(mins)}
                     className={`rounded-full border px-3 py-1 text-xs font-mono font-bold transition ${
                       estimatedMinutes === mins
-                        ? "border-warm-amber bg-warm-amber/20 text-warm-amber"
-                        : "border-warm-border bg-warm-surface2 text-warm-textMuted hover:border-warm-amber/40 hover:text-warm-text"
+                        ? "border-warm-purple bg-warm-purple/20 text-warm-purple"
+                        : "border-warm-border bg-warm-surface2 text-warm-textMuted hover:border-warm-purple/40 hover:text-warm-text"
                     }`}
                   >
                     {mins >= 60 ? `${mins / 60}h` : `${mins}m`}{mins === 120 ? "+" : ""}
@@ -328,7 +328,7 @@ export default function TasksPage() {
 
             <button
               type="submit"
-              className="mt-auto rounded-xl bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition self-end"
+              className="mt-auto rounded-xl bg-warm-purple text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(147,112,240,0.15)] transition self-end"
             >
               Add Task
             </button>
@@ -340,7 +340,7 @@ export default function TasksPage() {
       {rescue && (
         <div className="fixed inset-0 z-50 bg-warm-bg/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="max-w-md w-full text-center space-y-6">
-            <h1 className="font-space text-3xl font-bold text-warm-amber uppercase tracking-widest">
+            <h1 className="font-space text-3xl font-bold text-warm-purple uppercase tracking-widest">
               Rescue Mode
             </h1>
             <p className="font-quick text-warm-textMuted text-base leading-relaxed">
@@ -363,7 +363,7 @@ export default function TasksPage() {
                   setRescue(null);
                   bus.emit("pet:react", { message: "Ready to focus! Let's do this!" });
                 }}
-                className="w-full mt-2 rounded-xl bg-warm-amber text-warm-bg py-3 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+                className="w-full mt-2 rounded-xl bg-warm-purple text-warm-bg py-3 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(147,112,240,0.15)] transition"
               >
                 Let's do this →
               </button>
@@ -439,7 +439,7 @@ export default function TasksPage() {
                   return (
                     <div
                       key={t.id}
-                      className={`overflow-hidden rounded-2xl border border-warm-border border-l-[4px] ${priorityBorder} bg-warm-surface2 hover:border-warm-amber/20 transition`}
+                      className={`overflow-hidden rounded-2xl border border-warm-border border-l-[4px] ${priorityBorder} bg-warm-surface2 hover:border-warm-purple/20 transition`}
                     >
                       <TaskCard
                         task={t}

@@ -114,7 +114,7 @@ export default function PathsPage() {
   if (!loaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-warm-bg">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-warm-amber/30 border-t-warm-amber" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-warm-teal/30 border-t-warm-teal" />
       </div>
     );
   }
@@ -124,18 +124,18 @@ export default function PathsPage() {
       {/* ── Map / Compass Hero ── */}
       <div className="relative mx-auto max-w-[1400px]">
         <div className="relative overflow-hidden rounded-2xl border border-warm-border bg-warm-surface px-8 py-10 shadow-2xl">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-warm-amber/5 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-warm-teal/5 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-warm-purple/5 blur-3xl" />
 
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-5">
               <div className="relative flex-shrink-0">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-warm-border bg-warm-surface2 text-4xl shadow-lg">
-                  <IconMap className="h-10 w-10 text-warm-amber" />
+                  <IconMap className="h-10 w-10 text-warm-teal" />
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-[10px] font-quick font-bold uppercase tracking-widest text-warm-amber">
+                <div className="text-[10px] font-quick font-bold uppercase tracking-widest text-warm-teal">
                   THE PATH OF MASTERY
                 </div>
                 <h1 className="font-space text-xl sm:text-3xl font-bold text-warm-text">
@@ -150,7 +150,7 @@ export default function PathsPage() {
                       <span className="text-sm font-mono font-bold text-warm-text">{(paths || []).length}</span> active mastery paths
                     </div>
                     <div>
-                      <span className="text-sm font-mono font-bold text-warm-amber">
+                      <span className="text-sm font-mono font-bold text-warm-teal">
                         {(paths || []).reduce((acc, p) => acc + (p.nodes || []).filter((n) => n.status === "done").length, 0)}
                       </span> milestones completed
                     </div>
@@ -161,7 +161,7 @@ export default function PathsPage() {
 
             <button
               onClick={() => setShowForm((v) => !v)}
-              className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+              className="rounded-full bg-warm-teal text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(94,234,212,0.15)] transition"
             >
               {showForm ? "✕ Cancel" : "+ Start a Mastery Path"}
             </button>
@@ -170,10 +170,10 @@ export default function PathsPage() {
 
         {/* ── New Path Form ── */}
         {showForm && (
-          <div className="mt-5 overflow-hidden rounded-2xl border border-warm-border bg-warm-surface shadow-xl border-l-4 border-l-warm-amber">
+          <div className="mt-5 overflow-hidden rounded-2xl border border-warm-border bg-warm-surface shadow-xl border-l-4 border-l-warm-teal">
             <div className="border-b border-warm-border bg-warm-surface2 px-6 py-4">
               <h2 className="flex items-center gap-2 text-sm font-quick font-bold text-warm-text uppercase tracking-wider">
-                <IconMap className="h-4 w-4 text-warm-amber" /> Start a New Mastery Path
+                <IconMap className="h-4 w-4 text-warm-teal" /> Start a New Mastery Path
               </h2>
             </div>
             <form onSubmit={handleAddPath} className="space-y-5 p-6">
@@ -187,7 +187,7 @@ export default function PathsPage() {
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. Master the Rust Programming Language"
                     required
-                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-amber transition"
+                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-teal transition"
                   />
                 </div>
                 <div>
@@ -198,7 +198,7 @@ export default function PathsPage() {
                     value={goal}
                     onChange={(e) => setGoal(e.target.value)}
                     placeholder="e.g. Forge a full operating system"
-                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-amber transition"
+                    className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-quick text-warm-text placeholder-warm-textMuted/50 outline-none focus:border-warm-teal transition"
                   />
                 </div>
               </div>
@@ -215,7 +215,7 @@ export default function PathsPage() {
                       onClick={() => setCategory(cat)}
                       className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-quick font-bold transition duration-200 ${
                         category === cat
-                          ? "border-warm-amber bg-warm-amber/15 text-warm-amber shadow"
+                          ? "border-warm-teal bg-warm-teal/15 text-warm-teal shadow"
                           : "border-warm-border bg-warm-surface2 text-warm-textMuted hover:text-warm-text"
                       }`}
                     >
@@ -230,7 +230,7 @@ export default function PathsPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+                  className="rounded-full bg-warm-teal text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(94,234,212,0.15)] transition"
                 >
                   {creating ? "Mapping path..." : "Start This Path 🚀"}
                 </button>
@@ -251,9 +251,9 @@ export default function PathsPage() {
       {/* ── Empty State ── */}
       {(paths || []).length === 0 && !showForm && (
         <div className="mx-auto max-w-[1400px]">
-          <div className="flex flex-col items-center gap-6 rounded-2xl border border-warm-amber/30 border-dashed bg-warm-surface px-8 py-20 text-center shadow">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-warm-amber/30 bg-warm-surface2">
-              <IconMap className="h-8 w-8 text-warm-amber" />
+          <div className="flex flex-col items-center gap-6 rounded-2xl border border-warm-teal/30 border-dashed bg-warm-surface px-8 py-20 text-center shadow">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-warm-teal/30 bg-warm-surface2">
+              <IconMap className="h-8 w-8 text-warm-teal" />
             </div>
             <div className="space-y-1">
               <h2 className="font-space text-lg font-bold text-warm-text">Begin a New Mastery Path</h2>
@@ -263,7 +263,7 @@ export default function PathsPage() {
             </div>
             <button
               onClick={() => setShowForm(true)}
-              className="rounded-full bg-warm-amber text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(240,168,104,0.15)] transition"
+              className="rounded-full bg-warm-teal text-warm-bg px-6 py-2.5 text-xs font-quick font-bold hover:shadow-[0_0_15px_rgba(94,234,212,0.15)] transition"
             >
               Begin a Mastery Path
             </button>
@@ -278,7 +278,7 @@ export default function PathsPage() {
             onClick={() => setActiveTab("active")}
             className={`rounded-full px-5 py-2 text-xs font-quick font-bold transition duration-200 ${
               activeTab === "active"
-                ? "bg-warm-amber/10 text-warm-amber border border-warm-amber/20"
+                ? "bg-warm-teal/10 text-warm-teal border border-warm-teal/20"
                 : "text-warm-textMuted hover:text-warm-text"
             }`}
           >
@@ -343,7 +343,7 @@ export default function PathsPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-base font-quick font-bold text-warm-text">{path.title}</h2>
                           <span
-                            className="rounded-full border border-warm-amber/20 bg-warm-amber/10 px-2.5 py-0.5 text-[9px] font-quick font-bold text-warm-amber uppercase tracking-wider"
+                            className="rounded-full border border-warm-teal/20 bg-warm-teal/10 px-2.5 py-0.5 text-[9px] font-quick font-bold text-warm-teal uppercase tracking-wider"
                           >
                             {CATEGORY_LABELS[path.category]}
                           </span>
@@ -359,7 +359,7 @@ export default function PathsPage() {
                     
                     {/* Rank Badge */}
                     <div className="flex items-center gap-3">
-                      <span className="rounded border border-warm-amber px-2.5 py-1 font-space text-[10px] font-bold text-warm-amber bg-warm-amber/10 uppercase tracking-wider">
+                      <span className="rounded border border-warm-teal px-2.5 py-1 font-space text-[10px] font-bold text-warm-teal bg-warm-teal/10 uppercase tracking-wider">
                         {currentRank}
                       </span>
                       <button
@@ -377,7 +377,7 @@ export default function PathsPage() {
                     <div className="space-y-2">
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-warm-surface2 border border-warm-border">
                         <div
-                          className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-warm-amber to-warm-amber/70"
+                          className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-warm-teal to-warm-teal/70"
                           style={{
                             width: `${pct}%`,
                           }}
@@ -414,7 +414,7 @@ export default function PathsPage() {
                       >
                         🧗
                       </span>
-                      <span className="text-[10px] font-quick font-bold text-warm-amber uppercase tracking-wider relative z-10">
+                      <span className="text-[10px] font-quick font-bold text-warm-teal uppercase tracking-wider relative z-10">
                         THE CLIMB
                       </span>
                     </div>
@@ -438,7 +438,7 @@ export default function PathsPage() {
                               <div className="relative flex-shrink-0 z-10">
                                 {isDone && (
                                   <div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold bg-warm-amber text-warm-bg shadow-lg shadow-warm-amber/15"
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold bg-warm-teal text-warm-bg shadow-lg shadow-warm-teal/15"
                                   >
                                     ✓
                                   </div>
@@ -447,10 +447,10 @@ export default function PathsPage() {
                                   <button
                                     onClick={() => handleUnlock(path.id, node.id)}
                                     disabled={unlocking === node.id}
-                                    className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-warm-amber bg-warm-surface2 animate-pulse"
+                                    className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-warm-teal bg-warm-surface2 animate-pulse"
                                     title="Unlock milestone"
                                   >
-                                    <span className="h-2 w-2 rounded-full bg-warm-amber" />
+                                    <span className="h-2 w-2 rounded-full bg-warm-teal" />
                                   </button>
                                 )}
                                 {isLocked && (
@@ -476,7 +476,7 @@ export default function PathsPage() {
                               <div className="text-right shrink-0">
                                 <span
                                   className={`font-mono text-xs font-bold ${
-                                    isLocked ? "text-warm-textHint" : "text-warm-amber"
+                                    isLocked ? "text-warm-textHint" : "text-warm-teal"
                                   }`}
                                 >
                                   +{node.xp} XP
@@ -490,8 +490,8 @@ export default function PathsPage() {
                                 <div
                                   className="w-0.5 h-8 transition-colors duration-500"
                                   style={{
-                                    backgroundColor: isDone ? "var(--color-warm-amber)" : "var(--color-warm-border)",
-                                    boxShadow: isDone ? "0 0 8px var(--color-warm-amber)" : "none",
+                                    backgroundColor: isDone ? "var(--color-warm-teal)" : "var(--color-warm-border)",
+                                    boxShadow: isDone ? "0 0 8px var(--color-warm-teal)" : "none",
                                   }}
                                 />
                               </div>

@@ -6,6 +6,7 @@ import { useXp } from "@/components/providers/XpProvider";
 import { bus } from "@/lib/events";
 import { fireConfetti } from "@/lib/confetti";
 import Card from "@/components/ui/Card";
+import { handleRewardRoll } from "@/lib/variableReward";
 import {
   FREQ_LABELS,
   hasCheckedInToday,
@@ -73,8 +74,7 @@ export default function ContractsPage() {
     setTimeout(() => {
       const { xpEarned, isCompleted } = checkIn(contractId);
       if (xpEarned > 0) {
-        awardXp(xpEarned, "contracts");
-        fireConfetti();
+        handleRewardRoll(xpEarned, "contracts", awardXp);
         if (isCompleted) {
           bus.emit("pet:react", { message: "OATH FULFILLED! You finished the 21-day challenge! 🏆" });
         } else {
