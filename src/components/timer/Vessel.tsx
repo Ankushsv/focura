@@ -16,7 +16,7 @@ export default function Vessel({
   size?: number;
   mini?: boolean;
   timeLabel?: string;
-  theme?: "default" | "jungle" | "future" | "hourglass";
+  theme?: "default" | "jungle" | "future" | "hourglass" | "orb";
   running?: boolean;
 }) {
   const r = size / 2 - 4;

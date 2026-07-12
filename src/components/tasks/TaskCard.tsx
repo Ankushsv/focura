@@ -112,8 +112,25 @@ export default function TaskCard({
     ? Math.round(((task.calibrated_estimate! - task.estimated_minutes!) / task.estimated_minutes!) * 100)
     : 0;
 
+  const isIdle = !task.done && (Date.now() - task.createdAt > 2 * 60 * 60 * 1000);
+
   return (
-    <div className="relative">
+    <motion.div
+      className="relative rounded-2xl"
+      animate={isIdle ? {
+        scale: [1, 1.004, 1],
+        boxShadow: [
+          '0 0 0 0 transparent',
+          '0 0 0 3px rgba(232,151,90,0.08)',
+          '0 0 0 0 transparent'
+        ]
+      } : {}}
+      transition={{ 
+        duration: 4, 
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+    >
       {/* Fog overlay for overdue tasks */}
       {deadline?.state === "overdue" && !task.done && (
         <div
@@ -188,7 +205,7 @@ export default function TaskCard({
           />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -345,7 +362,7 @@ function CardInner({
               </span>
             )}
             {showUnderestimate && (
-              <span className="text-[10px] font-quick text-[#f0a868]/70 italic">
+              <span className="text-[10px] font-quick text-[#f0a868]/70">
                 (you usually underestimate by {underestimatePct}%)
               </span>
             )}
@@ -461,7 +478,7 @@ function CardInner({
       )}
 
       {task.difficultyBefore !== undefined && !task.done && (
-        <p className="mt-3 text-xs font-quick italic text-warm-textMuted">
+        <p className="mt-3 text-xs font-quick text-warm-textMuted">
           ⚡ Estimated complexity: {task.difficultyBefore}/10.
         </p>
       )}
@@ -508,7 +525,7 @@ function CardInner({
       )}
 
       {task.memoryNote && !showMemory && !task.done && (
-        <p className="mt-3 rounded-lg bg-warm-amber/15 border border-warm-amber/10 px-3 py-2 text-xs font-quick italic text-warm-amber flex items-center gap-1.5">
+        <p className="mt-3 rounded-lg bg-warm-amber/15 border border-warm-amber/10 px-3 py-2 text-xs font-quick text-warm-amber flex items-center gap-1.5">
           <IconBook className="h-3.5 w-3.5 shrink-0" /> Notes: {task.memoryNote}
         </p>
       )}
