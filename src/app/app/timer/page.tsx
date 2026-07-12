@@ -13,6 +13,7 @@ import CatRenderer from "@/components/pet/CatRenderer";
 import { bus } from "@/lib/events";
 import { fireConfetti } from "@/lib/confetti";
 import { PHASES } from "@/lib/timer/phases";
+import { handleRewardRoll } from "@/lib/variableReward";
 import { sound } from "@/lib/timer/sound";
 import type { Task } from "@/lib/tasks/types";
 import { useTimer } from "@/components/providers/TimerProvider";
@@ -251,8 +252,9 @@ function TimerInner() {
     }
 
     if (totalAwarded > 0) {
-      awardXp(totalAwarded, "timer");
-      addXpForActivePet(totalAwarded);
+      const reward = handleRewardRoll(totalAwarded, "timer", awardXp);
+      const multipliedXp = Math.round(totalAwarded * reward.multiplier);
+      addXpForActivePet(multipliedXp);
     }
     
     setClaimed(true);

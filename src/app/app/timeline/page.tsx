@@ -38,7 +38,7 @@ function ConflictToast({
       </p>
       <button
         onClick={onSwap}
-        className="rounded-xl bg-warm-purple/20 border border-warm-purple/40 px-3 py-1.5 text-xs font-bold font-quick text-warm-purple hover:bg-warm-purple/30 transition"
+        className="rounded-xl bg-warm-amber/20 border border-warm-amber/40 px-3 py-1.5 text-xs font-bold font-quick text-warm-amber hover:bg-warm-amber/30 transition"
       >
         Swap
       </button>
@@ -70,10 +70,10 @@ function OverflowToast({
         ⚠️ The day is full — <span className="text-warm-amber">&ldquo;{taskName}&rdquo;</span> can&apos;t fit today.
       </p>
       <div className="flex gap-2">
-        <button onClick={onTomorrow} className="flex-1 rounded-xl bg-warm-teal/15 border border-warm-teal/30 py-1.5 text-xs font-bold font-quick text-warm-teal hover:bg-warm-teal/25 transition">
+        <button onClick={onTomorrow} className="flex-1 rounded-xl bg-warm-teal/5 border border-warm-teal/20 py-1.5 text-xs font-bold font-quick text-warm-teal/40 hover:bg-warm-teal/10 transition">
           Move to Tomorrow
         </button>
-        <button onClick={onKeep} className="flex-1 rounded-xl bg-warm-amber/10 border border-warm-amber/30 py-1.5 text-xs font-bold font-quick text-warm-amber hover:bg-warm-amber/20 transition">
+        <button onClick={onKeep} className="flex-1 rounded-xl bg-warm-amber text-warm-bg py-1.5 text-xs font-bold font-quick hover:shadow-[0_0_15px_rgba(232,151,90,0.15)] transition">
           Keep It
         </button>
         <button onClick={onDrop} className="flex-1 rounded-xl border border-warm-border py-1.5 text-xs font-bold font-quick text-warm-textMuted hover:text-warm-text transition">
@@ -109,7 +109,7 @@ function SaveTemplatePrompt({
           value={name}
           onChange={e => setName(e.target.value)}
           autoFocus
-          className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-space text-warm-text focus:border-warm-purple/50 focus:outline-none transition"
+          className="w-full rounded-xl border border-warm-border bg-warm-surface2 px-4 py-2.5 text-sm font-space text-warm-text focus:border-warm-amber/50 focus:outline-none transition"
         />
         <div className="flex gap-2">
           <button onClick={onCancel} className="flex-1 rounded-xl border border-warm-border py-2 text-xs font-quick font-bold text-warm-textMuted hover:text-warm-text transition">
@@ -118,7 +118,7 @@ function SaveTemplatePrompt({
           <button
             onClick={() => onSave(name)}
             disabled={!name.trim()}
-            className="flex-1 rounded-xl bg-warm-purple/80 py-2 text-xs font-quick font-bold text-white hover:bg-warm-purple disabled:opacity-40 transition"
+            className="flex-1 rounded-xl bg-warm-amber py-2 text-xs font-quick font-bold text-warm-bg hover:shadow-[0_0_15px_rgba(232,151,90,0.15)] disabled:opacity-40 transition"
           >
             Save
           </button>

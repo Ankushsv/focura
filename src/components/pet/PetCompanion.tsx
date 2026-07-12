@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { bus } from "@/lib/events";
 import { useXp } from "@/components/providers/XpProvider";
 import { usePet, ALL_PET_SPECIES } from "@/components/providers/PetProvider";
@@ -80,6 +81,83 @@ export default function PetCompanion() {
   // Snapping and Dragging States (Cat specific)
   const [isSnappedToNavbar, setIsSnappedToNavbar] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Proactive Familiar Message & Anticipation Dot
+  const [showAnticipationDot, setShowAnticipationDot] = useState(false);
+  const [proactiveMessage, setProactiveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    async function checkProactiveMessage() {
+      try {
+        const supabase = (await import("@/lib/supabase/client")).createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Fetch contracts to calculate streak
+        const { data: dbContracts } = await supabase
+          .from("contracts")
+          .select("streak")
+          .eq("user_id", user.id);
+        const streakDays = dbContracts && dbContracts.length > 0 ? Math.max(...dbContracts.map(c => c.streak || 0)) : 0;
+
+        // Fetch non-done tasks for today's deadline check
+        const { data: dbTasks } = await supabase
+          .from("tasks")
+          .select("due_date")
+          .eq("user_id", user.id)
+          .eq("done", false);
+        
+        const todayStr = new Date().toISOString().split("T")[0];
+        const tasksDueToday = dbTasks ? dbTasks.filter((t: any) => t.due_date === todayStr).length : 0;
+
+        // Fetch last session completion time
+        const lastEndedStr = localStorage.getItem("focura.last_session_ended_at");
+        let lastSessionEndedHoursAgo = 24;
+        if (lastEndedStr) {
+          lastSessionEndedHoursAgo = (Date.now() - parseInt(lastEndedStr)) / (1000 * 60 * 60);
+        } else {
+          const { data: dbDoneTasks } = await supabase
+            .from("tasks")
+            .select("completed_at")
+            .eq("user_id", user.id)
+            .eq("done", true)
+            .order("completed_at", { ascending: false })
+            .limit(1);
+          if (dbDoneTasks && dbDoneTasks.length > 0 && dbDoneTasks[0].completed_at) {
+            const completedTime = new Date(dbDoneTasks[0].completed_at).getTime();
+            lastSessionEndedHoursAgo = (Date.now() - completedTime) / (1000 * 60 * 60);
+          }
+        }
+
+        // Get last shown time
+        const lastShownStr = localStorage.getItem("focura.last_familiar_message_shown_at");
+        const lastFamiliarMessageShownAt = lastShownStr ? new Date(lastShownStr) : new Date(0);
+
+        const context = {
+          currentHour: new Date().getHours(),
+          lastSessionEndedHoursAgo,
+          streakDays,
+          tasksDueToday,
+          userTypicalFocusHour: 10, // typical peak focus window 10 AM
+          lastFamiliarMessageShownAt,
+        };
+
+        const { getFamiliarMessage } = await import("@/lib/familiarIntelligence");
+        const msg = getFamiliarMessage(context);
+        if (msg) {
+          setProactiveMessage(msg);
+          setShowAnticipationDot(true);
+        }
+      } catch (err) {
+        console.warn("Failed to check proactive familiar messages:", err);
+      }
+    }
+
+    const t = setTimeout(checkProactiveMessage, 3000);
+    return () => clearTimeout(t);
+  }, []);
   const [showPlayMenu, setShowPlayMenu] = useState(false);
   const [activeAction, setActiveAction] = useState<"jump" | "run" | "scream" | "cry" | null>(null);
 
@@ -579,7 +657,21 @@ export default function PetCompanion() {
           </div>
 
           {/* Canvas or SVG Component */}
-          <div className="familiar-float">
+          <div className="familiar-float relative">
+            {showAnticipationDot && (
+              <motion.span
+                animate={{
+                  opacity: [0.6, 1, 0.6],
+                  scale: [0.9, 1.1, 0.9]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="absolute -top-1 -right-1 z-50 h-2.5 w-2.5 rounded-full bg-realm-gold shadow-[0_0_8px_rgba(232,151,90,0.85)] pointer-events-none"
+              />
+            )}
             <div
               className="cursor-pointer transition-transform hover:scale-110 active:scale-95"
               style={{
@@ -588,6 +680,31 @@ export default function PetCompanion() {
               }}
               title={isCat ? "Click to play! Double click to view stats" : "Click to pet! Double click to view stats"}
               onClick={() => {
+                if (showAnticipationDot && proactiveMessage) {
+                  setShowAnticipationDot(false);
+                  setProactiveMessage(null);
+                  setMessage(proactiveMessage);
+                  
+                  // Save shown time
+                  const nowStr = new Date().toISOString();
+                  localStorage.setItem("focura.last_familiar_message_shown_at", nowStr);
+                  
+                  void (async () => {
+                    try {
+                      const { logUserEvent } = await import("@/lib/userEvents");
+                      await logUserEvent("familiar_message_shown", { message: proactiveMessage });
+                    } catch {}
+                  })();
+
+                  setAnimation("dance");
+                  if (soundEnabled && isCat) playPetSound("cat-meow");
+                  clearTimeout(bounceTimer.current);
+                  bounceTimer.current = setTimeout(() => {
+                    setAnimation("idle");
+                  }, 4000);
+                  return;
+                }
+
                 if (isCat) {
                   setShowPlayMenu((prev) => !prev);
                   setAnimation("dance");
